@@ -12,12 +12,14 @@
         <div class="nav-container">
             <a href="admin.html" class="logo">
                 <span class="logo-icon">🛡️</span>
-                <span>EduResolve <small style="font-size:0.75rem; color:#94a3b8; font-weight:600;">| Administrator Console</small></span>
+                <span>EduResolve <small style="font-size:0.75rem; color:#94a3b8; font-weight:600;">| Admin Console</small></span>
             </a>
-            <nav class="nav-links">
-                <a href="index.html">Student Portal</a>
-                <a href="admin.html" class="active">Admin Portal</a>
-            </nav>
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <span id="adminUserBadge" style="font-size:0.88rem; font-weight:600; color:#cbd5e1;">Admin: admin@college.com</span>
+                <button class="btn btn-sm btn-outline" onclick="handleLogout()" style="background:#1e293b; color:#fca5a5; border-color:#475569;">
+                    🚪 Log Out
+                </button>
+            </div>
         </div>
     </header>
 
@@ -28,7 +30,7 @@
                 ⚙️ Campus Authority Dashboard
             </div>
             <h1>Grievance Triage & Resolution Center</h1>
-            <p>Review submitted grievances, update resolution workflows, and maintain campus accountability.</p>
+            <p>Review submitted student grievances, update status workflows, and maintain campus accountability.</p>
         </section>
 
         <!-- Summary Statistics Counter Grid -->
@@ -83,7 +85,7 @@
                         <tr>
                             <th style="width: 70px;">ID</th>
                             <th>Student Info</th>
-                            <th style="width: 130px;">Category</th>
+                            <th style="width: 140px;">Category</th>
                             <th>Complaint Details</th>
                             <th style="width: 130px;">Status</th>
                             <th style="width: 160px;">Change Status</th>
@@ -109,7 +111,7 @@
     <script src="script.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            loadAdminComplaints();
+            initAdminPage();
         });
     </script>
 </body>
