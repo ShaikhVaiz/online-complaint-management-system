@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administrator Console - Mini Project</title>
+    <title>Administrator Console - EduResolve</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Top Navigation -->
+    <!-- Top Navigation Bar -->
     <header class="navbar navbar-admin">
         <div class="nav-container">
-            <div class="logo">🛡️ Admin Complaint Console</div>
+            <a href="admin.html" class="logo">
+                <span class="logo-icon">🛡️</span>
+                <span>EduResolve <small style="font-size:0.75rem; color:#94a3b8; font-weight:600;">| Administrator Console</small></span>
+            </a>
             <nav class="nav-links">
                 <a href="index.html">Student Portal</a>
                 <a href="admin.html" class="active">Admin Portal</a>
@@ -19,25 +22,28 @@
     </header>
 
     <main class="container">
-        <!-- Hero Header -->
-        <section class="hero-section hero-admin">
-            <h1>Campus Grievance Administration</h1>
-            <p>Review student complaints and update their resolution status in real time.</p>
+        <!-- Page Title & Header -->
+        <section class="hero-section">
+            <div class="institution-pill" style="background:#f1f5f9; color:#0f172a; border-color:#cbd5e1;">
+                ⚙️ Campus Authority Dashboard
+            </div>
+            <h1>Grievance Triage & Resolution Center</h1>
+            <p>Review submitted grievances, update resolution workflows, and maintain campus accountability.</p>
         </section>
 
-        <!-- Summary Statistics Counter -->
+        <!-- Summary Statistics Counter Grid -->
         <section class="stats-grid">
-            <div class="stat-card">
+            <div class="stat-card stat-total">
                 <span class="stat-num" id="statTotal">0</span>
-                <span class="stat-label">Total Complaints</span>
+                <span class="stat-label">Total Grievances</span>
             </div>
             <div class="stat-card stat-pending">
                 <span class="stat-num" id="statPending">0</span>
-                <span class="stat-label">Pending</span>
+                <span class="stat-label">Pending Review</span>
             </div>
             <div class="stat-card stat-progress">
                 <span class="stat-num" id="statProgress">0</span>
-                <span class="stat-label">In Progress</span>
+                <span class="stat-label">Under Investigation</span>
             </div>
             <div class="stat-card stat-resolved">
                 <span class="stat-num" id="statResolved">0</span>
@@ -45,19 +51,29 @@
             </div>
         </section>
 
-        <!-- Complaints Table with Actions -->
-        <section class="card table-card">
+        <!-- Complaints Table with Actions Card -->
+        <section class="card card-accent-dark">
             <div class="table-header">
-                <h2>Manage Complaints & Update Status</h2>
+                <div>
+                    <h2 class="card-title" style="margin-bottom:0.25rem; border:none; padding:0;">
+                        <span>📋</span> Student Complaints Registry
+                    </h2>
+                    <p style="font-size:0.88rem; color:#64748b; margin-top:0.25rem;">
+                        Select a status in the table below to immediately update the record in the database.
+                    </p>
+                </div>
+                
                 <div class="filter-group">
-                    <label for="statusFilter">Filter by Status: </label>
+                    <label for="statusFilter" style="margin-bottom:0; font-size:0.85rem;">Filter:</label>
                     <select id="statusFilter" onchange="filterAdminComplaints()">
                         <option value="All">All Complaints</option>
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Resolved">Resolved</option>
+                        <option value="Pending">Pending Only</option>
+                        <option value="In Progress">In Progress Only</option>
+                        <option value="Resolved">Resolved Only</option>
                     </select>
-                    <button class="btn btn-sm btn-outline" onclick="loadAdminComplaints()">🔄 Refresh</button>
+                    <button class="btn btn-sm btn-outline" onclick="loadAdminComplaints()">
+                        <span>🔄</span> Refresh
+                    </button>
                 </div>
             </div>
 
@@ -65,18 +81,20 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th style="width: 70px;">ID</th>
                             <th>Student Info</th>
-                            <th>Category</th>
+                            <th style="width: 130px;">Category</th>
                             <th>Complaint Details</th>
-                            <th>Current Status</th>
-                            <th>Update Status Action</th>
-                            <th>Delete</th>
+                            <th style="width: 130px;">Status</th>
+                            <th style="width: 160px;">Change Status</th>
+                            <th style="width: 80px;" class="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody id="adminTableBody">
                         <tr>
-                            <td colspan="7" class="text-center">Loading complaints...</td>
+                            <td colspan="7" class="text-center" style="padding:2.5rem; color:#64748b;">
+                                Loading complaints registry...
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -85,12 +103,11 @@
     </main>
 
     <footer class="footer">
-        <p>&copy; 2026 College Online Complaint Management System | Admin Console</p>
+        <p>&copy; 2026 <strong>EduResolve</strong> - Online Complaint Management System | Admin Console</p>
     </footer>
 
     <script src="script.js"></script>
     <script>
-        // Auto-load admin data on page load
         document.addEventListener("DOMContentLoaded", function() {
             loadAdminComplaints();
         });

@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Complaint Portal - Mini Project</title>
+    <title>Student Complaint Portal - EduResolve</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Top Navigation -->
+    <!-- Top Navigation Bar -->
     <header class="navbar">
         <div class="nav-container">
-            <div class="logo">🎓 College Complaint Portal</div>
+            <a href="index.html" class="logo">
+                <span class="logo-icon">🏛️</span>
+                <span>EduResolve <small style="font-size:0.75rem; color:#64748b; font-weight:600;">| CMS</small></span>
+            </a>
             <nav class="nav-links">
                 <a href="index.html" class="active">Student Portal</a>
                 <a href="admin.html">Admin Portal</a>
@@ -19,78 +22,102 @@
     </header>
 
     <main class="container">
-        <!-- Hero Title -->
+        <!-- Page Title & Header -->
         <section class="hero-section">
+            <div class="institution-pill">🎓 Campus Grievance Redressal System</div>
             <h1>Online Complaint Management System</h1>
-            <p>Submit your campus grievance online and track its status in real time.</p>
+            <p>Submit college complaints online and track official administrative resolution status in real time.</p>
         </section>
 
-        <!-- Complaint Submission Form -->
-        <section class="card form-card">
-            <h2>📝 Lodge a New Complaint</h2>
+        <!-- Complaint Submission Form Card -->
+        <section class="card card-accent-primary">
+            <h2 class="card-title">
+                <span>📝</span> Lodge a New Complaint
+            </h2>
+            
             <form id="complaintForm">
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="student_name">Student Name *</label>
-                        <input type="text" id="student_name" placeholder="e.g. Rahul Sharma" required>
+                        <label for="student_name">Full Name <span class="req-star">*</span></label>
+                        <input type="text" id="student_name" placeholder="e.g. Rahul Sharma" required autocomplete="name">
                     </div>
                     <div class="form-group">
-                        <label for="student_id">Student ID / Roll No *</label>
-                        <input type="text" id="student_id" placeholder="e.g. CS101" required>
+                        <label for="student_id">Student ID / Roll No <span class="req-star">*</span></label>
+                        <input type="text" id="student_id" placeholder="e.g. CS-2026-101" required>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="category">Category *</label>
+                        <label for="category">Grievance Category <span class="req-star">*</span></label>
                         <select id="category" required>
-                            <option value="Classroom">Classroom</option>
-                            <option value="Laboratory">Laboratory</option>
-                            <option value="Hostel">Hostel</option>
-                            <option value="Library">Library</option>
-                            <option value="Wi-Fi / Internet">Wi-Fi / Internet</option>
-                            <option value="Canteen">Canteen</option>
-                            <option value="Other">Other</option>
+                            <option value="" disabled selected>-- Select a Category --</option>
+                            <option value="Classroom">Classroom Infrastructure</option>
+                            <option value="Laboratory">Laboratory Equipment</option>
+                            <option value="Hostel">Hostel Maintenance</option>
+                            <option value="Library">Library & Reading Room</option>
+                            <option value="Wi-Fi / Internet">Wi-Fi / Internet Connectivity</option>
+                            <option value="Canteen">Canteen & Cafeteria</option>
+                            <option value="Transport">Campus Transport</option>
+                            <option value="Examination">Examination & Academics</option>
+                            <option value="Other">Other Campus Issue</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="title">Complaint Title *</label>
-                        <input type="text" id="title" placeholder="e.g. Projector not working in Room 204" required>
+                        <label for="title">Complaint Subject / Title <span class="req-star">*</span></label>
+                        <input type="text" id="title" placeholder="e.g. Projector HDMI port broken in Room 204" required>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="description">Detailed Description *</label>
-                    <textarea id="description" rows="4" placeholder="Explain the problem in detail..." required></textarea>
+                    <label for="description">Detailed Description <span class="req-star">*</span></label>
+                    <textarea id="description" rows="4" placeholder="Explain the specific issue, exact room/location, and how it impacts classes..." required></textarea>
                 </div>
 
-                <button type="submit" class="btn btn-primary" id="submitBtn">Submit Complaint</button>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; flex-wrap:wrap; gap:1rem;">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <span>📤</span> Submit Complaint
+                    </button>
+                    <span style="font-size:0.85rem; color:#64748b;">
+                        🔒 Submissions are logged directly into the campus database.
+                    </span>
+                </div>
+
                 <div id="formMessage" class="message-box"></div>
             </form>
         </section>
 
-        <!-- Live Complaints List -->
-        <section class="card table-card">
+        <!-- Live Complaints List Card -->
+        <section class="card">
             <div class="table-header">
-                <h2>📋 Recent Campus Complaints</h2>
-                <button class="btn btn-sm btn-outline" onclick="loadComplaints()">🔄 Refresh</button>
+                <div>
+                    <h2 class="card-title" style="margin-bottom:0.25rem; border:none; padding:0;">
+                        <span>📋</span> Recent Campus Grievances
+                    </h2>
+                    <p style="font-size:0.88rem; color:#64748b; margin-top:0.25rem;">Live complaint feed from the college database</p>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="loadComplaints()">
+                    <span>🔄</span> Refresh Statuses
+                </button>
             </div>
             
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Student</th>
+                            <th style="width: 80px;">ID</th>
+                            <th>Student Name & Roll</th>
                             <th>Category</th>
-                            <th>Title & Description</th>
-                            <th>Status</th>
-                            <th>Date</th>
+                            <th>Complaint Details</th>
+                            <th style="width: 140px;">Current Status</th>
+                            <th style="width: 120px;">Date Lodged</th>
                         </tr>
                     </thead>
                     <tbody id="complaintsTableBody">
                         <tr>
-                            <td colspan="6" class="text-center">Loading complaints from database...</td>
+                            <td colspan="6" class="text-center" style="padding:2.5rem; color:#64748b;">
+                                Loading complaints from database...
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -99,7 +126,7 @@
     </main>
 
     <footer class="footer">
-        <p>&copy; 2026 College Online Complaint Management System | Mini Project</p>
+        <p>&copy; 2026 <strong>EduResolve</strong> - Online Complaint Management System | College Mini Project</p>
     </footer>
 
     <script src="script.js"></script>
