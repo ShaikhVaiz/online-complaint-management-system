@@ -112,6 +112,9 @@
                         <label for="login_password">Password <span class="req-star">*</span></label>
                         <input type="password" id="login_password" placeholder="Enter your password" required>
                     </div>
+                    <div style="display:flex; justify-content:flex-end; margin-bottom:1.25rem; margin-top:-0.35rem;">
+                        <a href="javascript:void(0)" onclick="openForgotPassword()" style="font-size:0.85rem; color:var(--primary); font-weight:700; text-decoration:none;">🔑 Forgot Password?</a>
+                    </div>
                     <button type="submit" class="btn btn-primary" style="width:100%;" id="studentLoginBtn">
                         Sign In to Student Portal
                     </button>
@@ -176,6 +179,60 @@
                         Sign In to Admin Console
                     </button>
                 </form>
+
+                <div class="demo-callout" style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:8px; padding:0.85rem; margin-top:1.25rem; font-size:0.82rem; color:#475569;">
+                    <div><strong>🛡️ Default Admin Credentials:</strong></div>
+                    <div>Email: <code>admin@college.com</code> | Password: <code>Admin@123</code></div>
+                    <div style="margin-top:0.35rem;">
+                        <a href="javascript:void(0)" class="demo-btn" onclick="fillAdminDemo()" style="color:var(--primary); font-weight:700; text-decoration:underline; cursor:pointer;">⚡ Click here to auto-fill</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 4: Forgot Password via Email OTP -->
+            <div id="panel-forgot-password" class="auth-panel">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                    <h3 style="font-size:1.15rem; font-weight:800; color:#0f172a; margin:0;">Reset Student Password</h3>
+                    <a href="javascript:void(0)" onclick="switchAuthTab('student-login')" style="font-size:0.82rem; color:#64748b; font-weight:600; text-decoration:none;">← Back to Login</a>
+                </div>
+                <p style="font-size:0.85rem; color:#64748b; margin-bottom:1.25rem;">Verify your registered college email to receive a 6-digit OTP code.</p>
+
+                <!-- Step 1: Send OTP -->
+                <div id="fp-step-1">
+                    <form id="requestOtpForm">
+                        <div class="form-group">
+                            <label for="fp_email">Registered Student Email <span class="req-star">*</span></label>
+                            <input type="email" id="fp_email" placeholder="e.g. rahul.sharma@college.com" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%;" id="sendOtpBtn">
+                            📩 Send 6-Digit OTP
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Step 2: Verify OTP & Reset Password -->
+                <div id="fp-step-2" style="display:none;">
+                    <form id="verifyOtpForm">
+                        <div class="form-group">
+                            <label for="fp_otp">Enter 6-Digit OTP Code <span class="req-star">*</span></label>
+                            <input type="text" id="fp_otp" placeholder="e.g. 123456" maxlength="6" pattern="[0-9]{6}" required style="letter-spacing:0.25rem; font-weight:700; font-size:1.15rem; text-align:center;">
+                        </div>
+                        <div class="form-group">
+                            <label for="fp_new_password">New Password (min 6 chars) <span class="req-star">*</span></label>
+                            <input type="password" id="fp_new_password" placeholder="Create new password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="fp_confirm_password">Confirm New Password <span class="req-star">*</span></label>
+                            <input type="password" id="fp_confirm_password" placeholder="Repeat new password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width:100%;" id="verifyOtpBtn">
+                            🔐 Verify OTP & Set New Password
+                        </button>
+                        <div style="text-align:center; margin-top:0.85rem;">
+                            <a href="javascript:void(0)" onclick="resendOtp()" style="font-size:0.82rem; color:var(--primary); font-weight:600;">Didn't receive code? Resend OTP</a>
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <!-- Message Banner -->
@@ -205,6 +262,29 @@
             }
             const msg = document.getElementById('authMessage');
             if (msg) msg.style.display = 'none';
+        }
+
+        function openForgotPassword() {
+            document.querySelectorAll('.auth-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-forgot-password').classList.add('active');
+            document.getElementById('fp-step-1').style.display = 'block';
+            document.getElementById('fp-step-2').style.display = 'none';
+            const msg = document.getElementById('authMessage');
+            if (msg) msg.style.display = 'none';
+        }
+
+        function fillAdminDemo() {
+            document.getElementById('admin_email').value = 'admin@college.com';
+            document.getElementById('admin_password').value = 'Admin@123';
+        }
+
+        function resendOtp() {
+            const form = document.getElementById('requestOtpForm');
+            if (form) {
+                document.getElementById('fp-step-1').style.display = 'block';
+                document.getElementById('fp-step-2').style.display = 'none';
+            }
         }
     </script>
 </body>
