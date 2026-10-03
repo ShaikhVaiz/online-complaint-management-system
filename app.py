@@ -26,8 +26,19 @@ MYSQL_PASS = os.environ.get("MYSQL_PASSWORD", "")
 MYSQL_DB   = os.environ.get("MYSQL_DATABASE", "complaint_db")
 MYSQL_PORT = int(os.environ.get("MYSQL_PORT", 3306))
 
+import shutil
+
 USE_SQLITE = False
-SQLITE_PATH = os.path.join(BASE_DIR, "complaint_db.sqlite")
+if os.environ.get("VERCEL"):
+    SQLITE_PATH = "/tmp/complaint_db.sqlite"
+    src_db = os.path.join(BASE_DIR, "complaint_db.sqlite")
+    if not os.path.exists(SQLITE_PATH) and os.path.exists(src_db):
+        try:
+            shutil.copyfile(src_db, SQLITE_PATH)
+        except Exception:
+            pass
+else:
+    SQLITE_PATH = os.path.join(BASE_DIR, "complaint_db.sqlite")
 
 def get_db():
     """Returns (connection, db_type)."""
