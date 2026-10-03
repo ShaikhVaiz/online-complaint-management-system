@@ -20,13 +20,24 @@ app.secret_key = "eduresolve_mini_project_secret_key_2026"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # -------------------------------------------------------------
-# Database Connection Manager (MySQL with SQLite fallback)
+# Database Connection Manager (Cloud MySQL with SQLite fallback)
 # -------------------------------------------------------------
-MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
-MYSQL_USER = os.environ.get("MYSQL_USER", "root")
-MYSQL_PASS = os.environ.get("MYSQL_PASSWORD", "")
-MYSQL_DB   = os.environ.get("MYSQL_DATABASE", "complaint_db")
-MYSQL_PORT = int(os.environ.get("MYSQL_PORT", 3306))
+from urllib.parse import urlparse
+
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("MYSQL_URL") or os.environ.get("TIDB_URL")
+if DATABASE_URL and ("mysql" in DATABASE_URL or "tidb" in DATABASE_URL):
+    parsed = urlparse(DATABASE_URL)
+    MYSQL_HOST = parsed.hostname or "127.0.0.1"
+    MYSQL_USER = parsed.username or "root"
+    MYSQL_PASS = parsed.password or ""
+    MYSQL_DB   = (parsed.path or "").lstrip("/") or "complaint_db"
+    MYSQL_PORT = parsed.port or 3306
+else:
+    MYSQL_HOST = os.environ.get("MYSQL_HOST") or os.environ.get("TIDB_HOST") or "127.0.0.1"
+    MYSQL_USER = os.environ.get("MYSQL_USER") or os.environ.get("TIDB_USER") or "root"
+    MYSQL_PASS = os.environ.get("MYSQL_PASSWORD") or os.environ.get("TIDB_PASSWORD") or ""
+    MYSQL_DB   = os.environ.get("MYSQL_DATABASE") or os.environ.get("TIDB_DATABASE") or "complaint_db"
+    MYSQL_PORT = int(os.environ.get("MYSQL_PORT") or os.environ.get("TIDB_PORT") or 3306)
 
 import shutil
 
@@ -42,20 +53,43 @@ if os.environ.get("VERCEL"):
 else:
     SQLITE_PATH = os.path.join(BASE_DIR, "complaint_db.sqlite")
 
+def connect_mysql():
+    """Attempts connection to MySQL with SSL auto-negotiation for Cloud providers."""
+    import mysql.connector
+    
+    params = {
+        "host": MYSQL_HOST,
+        "user": MYSQL_USER,
+        "password": MYSQL_PASS,
+        "database": MYSQL_DB,
+        "port": MYSQL_PORT,
+        "autocommit": True
+    }
+    
+    # 1. Try direct connection
+    try:
+        return mysql.connector.connect(**params)
+    except Exception:
+        # 2. If remote host, try with SSL enabled (required by Aiven, TiDB Cloud, etc.)
+        if MYSQL_HOST not in ("127.0.0.1", "localhost"):
+            try:
+                ssl_params = dict(params)
+                ssl_params["ssl_disabled"] = False
+                return mysql.connector.connect(**ssl_params)
+            except Exception:
+                pass
+        raise
+
 def get_db():
     """Returns (connection, db_type)."""
     global USE_SQLITE
 
     if not USE_SQLITE:
         try:
-            import mysql.connector
-            conn = mysql.connector.connect(
-                host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASS,
-                database=MYSQL_DB, port=MYSQL_PORT, autocommit=True
-            )
+            conn = connect_mysql()
             return conn, "mysql"
-        except Exception:
-            # Try to auto-create MySQL database and tables
+        except Exception as err:
+            # Try to auto-create MySQL database if permitted
             try:
                 import mysql.connector
                 root_conn = mysql.connector.connect(
@@ -63,17 +97,14 @@ def get_db():
                 )
                 cur = root_conn.cursor()
                 cur.execute(f"CREATE DATABASE IF NOT EXISTS `{MYSQL_DB}`")
-                cur.execute(f"USE `{MYSQL_DB}`")
-                create_tables(cur, "mysql")
                 cur.close()
                 root_conn.close()
 
-                conn = mysql.connector.connect(
-                    host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASS,
-                    database=MYSQL_DB, port=MYSQL_PORT, autocommit=True
-                )
+                conn = connect_mysql()
                 return conn, "mysql"
             except Exception:
+                if os.environ.get("MYSQL_HOST") or os.environ.get("DATABASE_URL") or os.environ.get("TIDB_HOST"):
+                    print(f"Notice: Remote MySQL connection could not be established ({err}). Falling back to SQLite.")
                 USE_SQLITE = True
 
     # Fallback: SQLite
@@ -155,6 +186,7 @@ def seed_defaults():
     conn, db_type = get_db()
     try:
         cur = conn.cursor()
+        create_tables(cur, db_type)
         
         # Check admin
         cur.execute("SELECT id FROM admins WHERE email = 'admin@college.com'")
