@@ -149,6 +149,120 @@ if (adminLoginForm) {
     });
 }
 
+// -------------------------------------------------------------
+// Forgot Password via Email OTP Handlers
+// -------------------------------------------------------------
+let requestedResetEmail = "";
+
+// Step 1: Request OTP
+const requestOtpForm = document.getElementById("requestOtpForm");
+if (requestOtpForm) {
+    requestOtpForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById("sendOtpBtn");
+        const msg = document.getElementById("authMessage");
+        const email = document.getElementById("fp_email").value.trim().toLowerCase();
+
+        btn.disabled = true;
+        btn.innerText = "Sending OTP...";
+
+        try {
+            const res = await fetch("/api/forgot-password/send-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                requestedResetEmail = email;
+                msg.className = "message-box success";
+                msg.innerHTML = `✅ 6-Digit OTP sent to <strong>${escapeHtml(email)}</strong>!<br><small style="color:#0f172a; font-weight:700;">🔑 Verification OTP: ${data.demo_otp || ''}</small>`;
+                
+                document.getElementById("fp-step-1").style.display = "none";
+                document.getElementById("fp-step-2").style.display = "block";
+                setTimeout(() => {
+                    const otpInput = document.getElementById("fp_otp");
+                    if (otpInput) {
+                        otpInput.value = data.demo_otp || "";
+                        otpInput.focus();
+                    }
+                }, 300);
+            } else {
+                throw new Error(data.message || "Failed to send OTP.");
+            }
+        } catch (err) {
+            msg.className = "message-box error";
+            msg.innerText = `❌ ${err.message}`;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "📩 Send 6-Digit OTP";
+        }
+    });
+}
+
+// Step 2: Verify OTP & Reset Password
+const verifyOtpForm = document.getElementById("verifyOtpForm");
+if (verifyOtpForm) {
+    verifyOtpForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById("verifyOtpBtn");
+        const msg = document.getElementById("authMessage");
+
+        const otp = document.getElementById("fp_otp").value.trim();
+        const newPwd = document.getElementById("fp_new_password").value;
+        const confirmPwd = document.getElementById("fp_confirm_password").value;
+
+        if (newPwd !== confirmPwd) {
+            msg.className = "message-box error";
+            msg.innerText = "❌ New passwords do not match. Please re-enter.";
+            return;
+        }
+
+        if (newPwd.length < 6) {
+            msg.className = "message-box error";
+            msg.innerText = "❌ Password must be at least 6 characters long.";
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Verifying & Updating...";
+
+        try {
+            const res = await fetch("/api/forgot-password/verify-reset", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: requestedResetEmail || document.getElementById("fp_email").value.trim().toLowerCase(),
+                    otp: otp,
+                    new_password: newPwd
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                msg.className = "message-box success";
+                msg.innerText = "🎉 Password updated successfully! Please sign in with your new password.";
+                verifyOtpForm.reset();
+                requestOtpForm.reset();
+                setTimeout(() => {
+                    switchAuthTab("student-login");
+                    document.getElementById("login_identifier").value = requestedResetEmail;
+                    document.getElementById("login_password").focus();
+                }, 1500);
+            } else {
+                throw new Error(data.message || "Password reset failed.");
+            }
+        } catch (err) {
+            msg.className = "message-box error";
+            msg.innerText = `❌ ${err.message}`;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "🔐 Verify OTP & Set New Password";
+        }
+    });
+}
+
 // Logout Handler
 async function handleLogout() {
     try {

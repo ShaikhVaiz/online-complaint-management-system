@@ -8,6 +8,8 @@ Run command: python app.py
 import os
 import sys
 import json
+import random
+import time
 import sqlite3
 from datetime import datetime
 from flask import Flask, request, jsonify, session, send_from_directory
@@ -325,6 +327,105 @@ def login():
                 conn.close()
                 return jsonify({"success": False, "message": "Invalid student email/roll number or password."}), 401
 
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+# -------------------------------------------------------------
+# Forgot Password via Email OTP Endpoints
+# -------------------------------------------------------------
+otp_store = {}
+
+@app.route("/api/forgot-password/send-otp", methods=["POST"])
+def send_otp():
+    """Generates and sends a 6-digit OTP to the registered student email."""
+    data = request.get_json() or request.form
+    email = (data.get("email") or "").strip().lower()
+
+    if not email:
+        return jsonify({"success": False, "message": "Please enter your registered college email."}), 400
+
+    conn, db_type = get_db()
+    try:
+        cur = conn.cursor(dictionary=True) if db_type == "mysql" else conn.cursor()
+        if db_type == "mysql":
+            cur.execute("SELECT id, full_name, email FROM students WHERE email = %s", (email,))
+        else:
+            cur.execute("SELECT id, full_name, email FROM students WHERE email = ?", (email,))
+        
+        student = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not student:
+            return jsonify({"success": False, "message": "No student account found with this email address."}), 404
+
+        # Generate 6-digit OTP
+        otp_code = str(random.randint(100000, 999999))
+        otp_store[email] = {
+            "otp": otp_code,
+            "expires_at": time.time() + 600  # valid for 10 minutes
+        }
+
+        print(f"\n[EMAIL OTP SIMULATION] ===============================")
+        print(f"To: {email}")
+        print(f"Subject: Your Password Reset OTP for Online Complaint Portal")
+        print(f"OTP Code: {otp_code} (Valid for 10 minutes)")
+        print(f"======================================================\n")
+
+        return jsonify({
+            "success": True,
+            "message": f"6-digit OTP has been sent to {email}.",
+            "demo_otp": otp_code
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/forgot-password/verify-reset", methods=["POST"])
+def verify_and_reset():
+    """Verifies OTP and updates the student password in database."""
+    data = request.get_json() or request.form
+    email = (data.get("email") or "").strip().lower()
+    otp_entered = (data.get("otp") or "").strip()
+    new_password = data.get("new_password") or ""
+
+    if not email or not otp_entered or not new_password:
+        return jsonify({"success": False, "message": "All fields are required."}), 400
+
+    if len(new_password) < 6:
+        return jsonify({"success": False, "message": "New password must be at least 6 characters long."}), 400
+
+    record = otp_store.get(email)
+    if not record:
+        return jsonify({"success": False, "message": "No OTP was requested for this email or it has expired."}), 400
+
+    if time.time() > record["expires_at"]:
+        otp_store.pop(email, None)
+        return jsonify({"success": False, "message": "OTP has expired. Please request a new one."}), 400
+
+    if record["otp"] != otp_entered:
+        return jsonify({"success": False, "message": "Invalid OTP code. Please check and re-enter."}), 400
+
+    conn, db_type = get_db()
+    try:
+        cur = conn.cursor()
+        hashed_pwd = generate_password_hash(new_password)
+
+        if db_type == "mysql":
+            cur.execute("UPDATE students SET password = %s WHERE email = %s", (hashed_pwd, email))
+        else:
+            cur.execute("UPDATE students SET password = ? WHERE email = ?", (hashed_pwd, email))
+            conn.commit()
+
+        cur.close()
+        conn.close()
+
+        # Invalidate OTP after successful reset
+        otp_store.pop(email, None)
+
+        return jsonify({
+            "success": True,
+            "message": "Password reset successfully! You can now log in with your new password."
+        })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
