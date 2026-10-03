@@ -71,9 +71,9 @@
         <div class="nav-container">
             <a href="index.html" class="logo">
                 <span class="logo-icon">🏛️</span>
-                <span>EduResolve <small style="font-size:0.75rem; color:#64748b; font-weight:600;">| CMS</small></span>
+                <span>Online Complaint Management System</span>
             </a>
-            <span style="font-size:0.85rem; font-weight:600; color:#475569;">Campus Grievance Redressal</span>
+            <span style="font-size:0.85rem; font-weight:600; color:#475569;">Campus Portal</span>
         </div>
     </header>
 
@@ -116,14 +116,6 @@
                         Sign In to Student Portal
                     </button>
                 </form>
-
-                <div class="demo-callout">
-                    <div><strong>💡 Quick Demo Student Credentials:</strong></div>
-                    <div>Email: <code>rahul.sharma@college.com</code> | Password: <code>Student@123</code></div>
-                    <div style="margin-top:0.35rem;">
-                        <a href="javascript:void(0)" class="demo-btn" onclick="fillStudentDemo()">⚡ Click here to auto-fill</a>
-                    </div>
-                </div>
 
                 <div style="text-align:center; margin-top:1.25rem; font-size:0.88rem; color:#64748b;">
                     Don't have an account? <a href="javascript:void(0)" onclick="switchAuthTab('student-register')" style="color:var(--primary); font-weight:700;">Sign up here</a>
@@ -184,14 +176,6 @@
                         Sign In to Admin Console
                     </button>
                 </form>
-
-                <div class="demo-callout">
-                    <div><strong>🛡️ Default Admin Credentials:</strong></div>
-                    <div>Email: <code>admin@college.com</code> | Password: <code>Admin@123</code></div>
-                    <div style="margin-top:0.35rem;">
-                        <a href="javascript:void(0)" class="demo-btn" onclick="fillAdminDemo()">⚡ Click here to auto-fill</a>
-                    </div>
-                </div>
             </div>
 
             <!-- Message Banner -->
@@ -200,7 +184,7 @@
     </main>
 
     <footer class="footer">
-        <p>&copy; 2026 <strong>EduResolve</strong> - Online Complaint Management System</p>
+        <p>&copy; 2026 <strong>Online Complaint Management System</strong> - Student & Admin Portal</p>
     </footer>
 
     <script src="script.js"></script>
@@ -221,16 +205,6 @@
             }
             const msg = document.getElementById('authMessage');
             if (msg) msg.style.display = 'none';
-        }
-
-        function fillStudentDemo() {
-            document.getElementById('login_identifier').value = 'rahul.sharma@college.com';
-            document.getElementById('login_password').value = 'Student@123';
-        }
-
-        function fillAdminDemo() {
-            document.getElementById('admin_email').value = 'admin@college.com';
-            document.getElementById('admin_password').value = 'Admin@123';
         }
     </script>
 </body>
