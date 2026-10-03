@@ -3,132 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Complaint Portal - EduResolve</title>
+    <title>Login & Registration - Online Complaint Portal</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .auth-container {
+            max-width: 520px;
+            margin: 2rem auto;
+        }
+        .auth-tabs {
+            display: flex;
+            background: #e2e8f0;
+            padding: 0.35rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            gap: 0.25rem;
+        }
+        .auth-tab-btn {
+            flex: 1;
+            padding: 0.65rem 0.5rem;
+            border: none;
+            background: transparent;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #475569;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .auth-tab-btn.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .auth-tab-btn.active.admin-tab {
+            color: #0f172a;
+        }
+        .auth-panel {
+            display: none;
+        }
+        .auth-panel.active {
+            display: block;
+        }
+        .demo-callout {
+            background: #f8fafc;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 0.85rem;
+            margin-top: 1.25rem;
+            font-size: 0.82rem;
+            color: #475569;
+        }
+        .demo-callout strong {
+            color: #0f172a;
+        }
+        .demo-btn {
+            cursor: pointer;
+            text-decoration: underline;
+            color: var(--primary);
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
-    <!-- Top Navigation Bar -->
+    <!-- Top Nav -->
     <header class="navbar">
         <div class="nav-container">
             <a href="index.html" class="logo">
                 <span class="logo-icon">🏛️</span>
                 <span>EduResolve <small style="font-size:0.75rem; color:#64748b; font-weight:600;">| CMS</small></span>
             </a>
-            <nav class="nav-links">
-                <a href="index.html" class="active">Student Portal</a>
-                <a href="admin.html">Admin Portal</a>
-            </nav>
+            <span style="font-size:0.85rem; font-weight:600; color:#475569;">Campus Grievance Redressal</span>
         </div>
     </header>
 
-    <main class="container">
-        <!-- Page Title & Header -->
-        <section class="hero-section">
-            <div class="institution-pill">🎓 Campus Grievance Redressal System</div>
-            <h1>Online Complaint Management System</h1>
-            <p>Submit college complaints online and track official administrative resolution status in real time.</p>
-        </section>
+    <main class="container auth-container">
+        <!-- Hero Title -->
+        <div class="hero-section" style="margin-bottom:1.5rem;">
+            <div class="institution-pill">🎓 College Portal</div>
+            <h1 style="font-size:1.85rem;">Account Authentication</h1>
+            <p style="font-size:0.95rem;">Sign in to your student dashboard or access the administrator console.</p>
+        </div>
 
-        <!-- Complaint Submission Form Card -->
-        <section class="card card-accent-primary">
-            <h2 class="card-title">
-                <span>📝</span> Lodge a New Complaint
-            </h2>
-            
-            <form id="complaintForm">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="student_name">Full Name <span class="req-star">*</span></label>
-                        <input type="text" id="student_name" placeholder="e.g. Rahul Sharma" required autocomplete="name">
-                    </div>
-                    <div class="form-group">
-                        <label for="student_id">Student ID / Roll No <span class="req-star">*</span></label>
-                        <input type="text" id="student_id" placeholder="e.g. CS-2026-101" required>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="category">Grievance Category <span class="req-star">*</span></label>
-                        <select id="category" required>
-                            <option value="" disabled selected>-- Select a Category --</option>
-                            <option value="Classroom">Classroom Infrastructure</option>
-                            <option value="Laboratory">Laboratory Equipment</option>
-                            <option value="Hostel">Hostel Maintenance</option>
-                            <option value="Library">Library & Reading Room</option>
-                            <option value="Wi-Fi / Internet">Wi-Fi / Internet Connectivity</option>
-                            <option value="Canteen">Canteen & Cafeteria</option>
-                            <option value="Transport">Campus Transport</option>
-                            <option value="Examination">Examination & Academics</option>
-                            <option value="Other">Other Campus Issue</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="title">Complaint Subject / Title <span class="req-star">*</span></label>
-                        <input type="text" id="title" placeholder="e.g. Projector HDMI port broken in Room 204" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="description">Detailed Description <span class="req-star">*</span></label>
-                    <textarea id="description" rows="4" placeholder="Explain the specific issue, exact room/location, and how it impacts classes..." required></textarea>
-                </div>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; flex-wrap:wrap; gap:1rem;">
-                    <button type="submit" class="btn btn-primary" id="submitBtn">
-                        <span>📤</span> Submit Complaint
-                    </button>
-                    <span style="font-size:0.85rem; color:#64748b;">
-                        🔒 Submissions are logged directly into the campus database.
-                    </span>
-                </div>
-
-                <div id="formMessage" class="message-box"></div>
-            </form>
-        </section>
-
-        <!-- Live Complaints List Card -->
-        <section class="card">
-            <div class="table-header">
-                <div>
-                    <h2 class="card-title" style="margin-bottom:0.25rem; border:none; padding:0;">
-                        <span>📋</span> Recent Campus Grievances
-                    </h2>
-                    <p style="font-size:0.88rem; color:#64748b; margin-top:0.25rem;">Live complaint feed from the college database</p>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="loadComplaints()">
-                    <span>🔄</span> Refresh Statuses
+        <!-- Auth Card -->
+        <div class="card card-accent-primary" style="padding:1.75rem 2rem;">
+            <!-- Tabs -->
+            <div class="auth-tabs">
+                <button class="auth-tab-btn active" onclick="switchAuthTab('student-login')">
+                    Student Login
+                </button>
+                <button class="auth-tab-btn" onclick="switchAuthTab('student-register')">
+                    Sign Up
+                </button>
+                <button class="auth-tab-btn" onclick="switchAuthTab('admin-login')">
+                    🛡️ Admin Login
                 </button>
             </div>
-            
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 80px;">ID</th>
-                            <th>Student Name & Roll</th>
-                            <th>Category</th>
-                            <th>Complaint Details</th>
-                            <th style="width: 140px;">Current Status</th>
-                            <th style="width: 120px;">Date Lodged</th>
-                        </tr>
-                    </thead>
-                    <tbody id="complaintsTableBody">
-                        <tr>
-                            <td colspan="6" class="text-center" style="padding:2.5rem; color:#64748b;">
-                                Loading complaints from database...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <!-- Panel 1: Student Login -->
+            <div id="panel-student-login" class="auth-panel active">
+                <h3 style="font-size:1.15rem; font-weight:800; margin-bottom:1rem; color:#0f172a;">Student Sign In</h3>
+                <form id="studentLoginForm">
+                    <div class="form-group">
+                        <label for="login_identifier">Email or Student ID / Roll No <span class="req-star">*</span></label>
+                        <input type="text" id="login_identifier" placeholder="e.g. rahul.sharma@college.com or CS101" required autofocus>
+                    </div>
+                    <div class="form-group">
+                        <label for="login_password">Password <span class="req-star">*</span></label>
+                        <input type="password" id="login_password" placeholder="Enter your password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%;" id="studentLoginBtn">
+                        Sign In to Student Portal
+                    </button>
+                </form>
+
+                <div class="demo-callout">
+                    <div><strong>💡 Quick Demo Student Credentials:</strong></div>
+                    <div>Email: <code>rahul.sharma@college.com</code> | Password: <code>Student@123</code></div>
+                    <div style="margin-top:0.35rem;">
+                        <a href="javascript:void(0)" class="demo-btn" onclick="fillStudentDemo()">⚡ Click here to auto-fill</a>
+                    </div>
+                </div>
+
+                <div style="text-align:center; margin-top:1.25rem; font-size:0.88rem; color:#64748b;">
+                    Don't have an account? <a href="javascript:void(0)" onclick="switchAuthTab('student-register')" style="color:var(--primary); font-weight:700;">Sign up here</a>
+                </div>
             </div>
-        </section>
+
+            <!-- Panel 2: Student Registration -->
+            <div id="panel-student-register" class="auth-panel">
+                <h3 style="font-size:1.15rem; font-weight:800; margin-bottom:1rem; color:#0f172a;">Create Student Account</h3>
+                <form id="studentRegisterForm">
+                    <div class="form-group">
+                        <label for="reg_fullname">Full Name <span class="req-star">*</span></label>
+                        <input type="text" id="reg_fullname" placeholder="e.g. John Doe" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reg_student_id">Roll No / Student ID <span class="req-star">*</span></label>
+                            <input type="text" id="reg_student_id" placeholder="e.g. CS105" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg_email">Email Address <span class="req-star">*</span></label>
+                            <input type="email" id="reg_email" placeholder="student@college.com" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reg_password">Password (min 6 chars) <span class="req-star">*</span></label>
+                            <input type="password" id="reg_password" placeholder="Create password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reg_confirm_password">Confirm Password <span class="req-star">*</span></label>
+                            <input type="password" id="reg_confirm_password" placeholder="Repeat password" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%;" id="studentRegisterBtn">
+                        Register Account
+                    </button>
+                </form>
+
+                <div style="text-align:center; margin-top:1.25rem; font-size:0.88rem; color:#64748b;">
+                    Already registered? <a href="javascript:void(0)" onclick="switchAuthTab('student-login')" style="color:var(--primary); font-weight:700;">Sign in here</a>
+                </div>
+            </div>
+
+            <!-- Panel 3: Admin Login -->
+            <div id="panel-admin-login" class="auth-panel">
+                <h3 style="font-size:1.15rem; font-weight:800; margin-bottom:1rem; color:#0f172a;">Administrator Sign In</h3>
+                <form id="adminLoginForm">
+                    <div class="form-group">
+                        <label for="admin_email">Admin Email <span class="req-star">*</span></label>
+                        <input type="email" id="admin_email" placeholder="admin@college.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin_password">Admin Password <span class="req-star">*</span></label>
+                        <input type="password" id="admin_password" placeholder="Enter admin password" required>
+                    </div>
+                    <button type="submit" class="btn" style="width:100%; background:#0f172a; color:#ffffff;" id="adminLoginBtn">
+                        Sign In to Admin Console
+                    </button>
+                </form>
+
+                <div class="demo-callout">
+                    <div><strong>🛡️ Default Admin Credentials:</strong></div>
+                    <div>Email: <code>admin@college.com</code> | Password: <code>Admin@123</code></div>
+                    <div style="margin-top:0.35rem;">
+                        <a href="javascript:void(0)" class="demo-btn" onclick="fillAdminDemo()">⚡ Click here to auto-fill</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Banner -->
+            <div id="authMessage" class="message-box"></div>
+        </div>
     </main>
 
     <footer class="footer">
-        <p>&copy; 2026 <strong>EduResolve</strong> - Online Complaint Management System | College Mini Project</p>
+        <p>&copy; 2026 <strong>EduResolve</strong> - Online Complaint Management System</p>
     </footer>
 
     <script src="script.js"></script>
+    <script>
+        function switchAuthTab(tabName) {
+            document.querySelectorAll('.auth-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+            
+            if (tabName === 'student-login') {
+                document.querySelectorAll('.auth-tab-btn')[0].classList.add('active');
+                document.getElementById('panel-student-login').classList.add('active');
+            } else if (tabName === 'student-register') {
+                document.querySelectorAll('.auth-tab-btn')[1].classList.add('active');
+                document.getElementById('panel-student-register').classList.add('active');
+            } else if (tabName === 'admin-login') {
+                document.querySelectorAll('.auth-tab-btn')[2].classList.add('active');
+                document.getElementById('panel-admin-login').classList.add('active');
+            }
+            const msg = document.getElementById('authMessage');
+            if (msg) msg.style.display = 'none';
+        }
+
+        function fillStudentDemo() {
+            document.getElementById('login_identifier').value = 'rahul.sharma@college.com';
+            document.getElementById('login_password').value = 'Student@123';
+        }
+
+        function fillAdminDemo() {
+            document.getElementById('admin_email').value = 'admin@college.com';
+            document.getElementById('admin_password').value = 'Admin@123';
+        }
+    </script>
 </body>
 </html>

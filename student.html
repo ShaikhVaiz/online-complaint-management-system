@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - EduResolve</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="student.html" class="logo">
+                <span class="logo-icon">🏛️</span>
+                <span>EduResolve <small style="font-size:0.75rem; color:#64748b; font-weight:600;">| Student Portal</small></span>
+            </a>
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <span id="studentUserBadge" style="font-size:0.88rem; font-weight:700; color:#0f172a;">Loading...</span>
+                <button class="btn btn-sm btn-outline" onclick="handleLogout()" style="border-color:#ef4444; color:#dc2626;">
+                    🚪 Log Out
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Hero Header -->
+        <section class="hero-section">
+            <div class="institution-pill">🎓 Student Grievance Dashboard</div>
+            <h1 id="welcomeHeading">Welcome to Student Portal</h1>
+            <p>Lodge new campus grievances and track their real-time resolution status.</p>
+        </section>
+
+        <!-- Complaint Submission Form Card -->
+        <section class="card card-accent-primary">
+            <h2 class="card-title">
+                <span>📝</span> Lodge a New Complaint
+            </h2>
+            
+            <form id="studentComplaintForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="c_student_name">Your Name</label>
+                        <input type="text" id="c_student_name" readonly style="background:#f8fafc; font-weight:600;">
+                    </div>
+                    <div class="form-group">
+                        <label for="c_student_id">Roll No / Student ID</label>
+                        <input type="text" id="c_student_id" readonly style="background:#f8fafc; font-weight:600;">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="c_category">Grievance Category <span class="req-star">*</span></label>
+                        <select id="c_category" required>
+                            <option value="" disabled selected>-- Select a Category --</option>
+                            <option value="Classroom">Classroom Infrastructure</option>
+                            <option value="Laboratory">Laboratory Equipment</option>
+                            <option value="Hostel">Hostel Maintenance</option>
+                            <option value="Library">Library & Reading Room</option>
+                            <option value="Wi-Fi / Internet">Wi-Fi / Internet Connectivity</option>
+                            <option value="Canteen">Canteen & Cafeteria</option>
+                            <option value="Transport">Campus Transport</option>
+                            <option value="Examination">Examination & Academics</option>
+                            <option value="Other">Other Campus Issue</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="c_title">Complaint Subject / Title <span class="req-star">*</span></label>
+                        <input type="text" id="c_title" placeholder="e.g. Projector HDMI port broken in Room 204" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="c_description">Detailed Description <span class="req-star">*</span></label>
+                    <textarea id="c_description" rows="4" placeholder="Explain the specific issue, exact room/location, and how it impacts classes..." required></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; flex-wrap:wrap; gap:1rem;">
+                    <button type="submit" class="btn btn-primary" id="studentSubmitBtn">
+                        <span>📤</span> Submit Complaint
+                    </button>
+                    <span style="font-size:0.85rem; color:#64748b;">
+                        🔒 All submissions are securely logged into the college database.
+                    </span>
+                </div>
+
+                <div id="studentFormMessage" class="message-box"></div>
+            </form>
+        </section>
+
+        <!-- Live Complaints List Card -->
+        <section class="card">
+            <div class="table-header">
+                <div>
+                    <h2 class="card-title" style="margin-bottom:0.25rem; border:none; padding:0;">
+                        <span>📋</span> My Lodged Complaints
+                    </h2>
+                    <p style="font-size:0.88rem; color:#64748b; margin-top:0.25rem;">Real-time status updates directly from administration</p>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="loadStudentComplaints()">
+                    <span>🔄</span> Refresh Statuses
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">ID</th>
+                            <th>Category</th>
+                            <th>Subject & Description</th>
+                            <th style="width: 150px;">Resolution Status</th>
+                            <th style="width: 140px;">Date Lodged</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentComplaintsTableBody">
+                        <tr>
+                            <td colspan="5" class="text-center" style="padding:2.5rem; color:#64748b;">
+                                Loading your complaints...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 <strong>EduResolve</strong> - Online Complaint Management System | Student Portal</p>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            initStudentPage();
+        });
+    </script>
+</body>
+</html>
