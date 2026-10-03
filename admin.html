@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrator Console - Mini Project</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <header class="navbar navbar-admin">
+        <div class="nav-container">
+            <div class="logo">🛡️ Admin Complaint Console</div>
+            <nav class="nav-links">
+                <a href="index.html">Student Portal</a>
+                <a href="admin.html" class="active">Admin Portal</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Hero Header -->
+        <section class="hero-section hero-admin">
+            <h1>Campus Grievance Administration</h1>
+            <p>Review student complaints and update their resolution status in real time.</p>
+        </section>
+
+        <!-- Summary Statistics Counter -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-num" id="statTotal">0</span>
+                <span class="stat-label">Total Complaints</span>
+            </div>
+            <div class="stat-card stat-pending">
+                <span class="stat-num" id="statPending">0</span>
+                <span class="stat-label">Pending</span>
+            </div>
+            <div class="stat-card stat-progress">
+                <span class="stat-num" id="statProgress">0</span>
+                <span class="stat-label">In Progress</span>
+            </div>
+            <div class="stat-card stat-resolved">
+                <span class="stat-num" id="statResolved">0</span>
+                <span class="stat-label">Resolved</span>
+            </div>
+        </section>
+
+        <!-- Complaints Table with Actions -->
+        <section class="card table-card">
+            <div class="table-header">
+                <h2>Manage Complaints & Update Status</h2>
+                <div class="filter-group">
+                    <label for="statusFilter">Filter by Status: </label>
+                    <select id="statusFilter" onchange="filterAdminComplaints()">
+                        <option value="All">All Complaints</option>
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline" onclick="loadAdminComplaints()">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Student Info</th>
+                            <th>Category</th>
+                            <th>Complaint Details</th>
+                            <th>Current Status</th>
+                            <th>Update Status Action</th>
+                            <th>Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center">Loading complaints...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 College Online Complaint Management System | Admin Console</p>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        // Auto-load admin data on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            loadAdminComplaints();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Complaint Portal - Mini Project</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="logo">🎓 College Complaint Portal</div>
+            <nav class="nav-links">
+                <a href="index.html" class="active">Student Portal</a>
+                <a href="admin.html">Admin Portal</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Hero Title -->
+        <section class="hero-section">
+            <h1>Online Complaint Management System</h1>
+            <p>Submit your campus grievance online and track its status in real time.</p>
+        </section>
+
+        <!-- Complaint Submission Form -->
+        <section class="card form-card">
+            <h2>📝 Lodge a New Complaint</h2>
+            <form id="complaintForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="student_name">Student Name *</label>
+                        <input type="text" id="student_name" placeholder="e.g. Rahul Sharma" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="student_id">Student ID / Roll No *</label>
+                        <input type="text" id="student_id" placeholder="e.g. CS101" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="category">Category *</label>
+                        <select id="category" required>
+                            <option value="Classroom">Classroom</option>
+                            <option value="Laboratory">Laboratory</option>
+                            <option value="Hostel">Hostel</option>
+                            <option value="Library">Library</option>
+                            <option value="Wi-Fi / Internet">Wi-Fi / Internet</option>
+                            <option value="Canteen">Canteen</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="title">Complaint Title *</label>
+                        <input type="text" id="title" placeholder="e.g. Projector not working in Room 204" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Detailed Description *</label>
+                    <textarea id="description" rows="4" placeholder="Explain the problem in detail..." required></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">Submit Complaint</button>
+                <div id="formMessage" class="message-box"></div>
+            </form>
+        </section>
+
+        <!-- Live Complaints List -->
+        <section class="card table-card">
+            <div class="table-header">
+                <h2>📋 Recent Campus Complaints</h2>
+                <button class="btn btn-sm btn-outline" onclick="loadComplaints()">🔄 Refresh</button>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Student</th>
+                            <th>Category</th>
+                            <th>Title & Description</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="complaintsTableBody">
+                        <tr>
+                            <td colspan="6" class="text-center">Loading complaints from database...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 College Online Complaint Management System | Mini Project</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
