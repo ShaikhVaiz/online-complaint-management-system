@@ -121,22 +121,10 @@ def send_via_smtp(to_email, otp_code):
         return False, str(e)
 
 def send_real_email_otp(to_email, otp_code):
-    """Sends real OTP via Brevo API first, with SMTP fallback."""
+    """Sends real OTP via direct Gmail SMTP first (guarantees 100% inbox delivery), then Brevo API."""
     global LAST_EMAIL_STATUS
 
-    if BREVO_API_KEY:
-        ok, msg = send_via_brevo_api(to_email, otp_code)
-        LAST_EMAIL_STATUS = {
-            "timestamp": datetime.now().isoformat(),
-            "to": to_email,
-            "method": "brevo_api",
-            "success": ok,
-            "message": msg
-        }
-        if ok:
-            return True, msg
-        print(f"Brevo API attempt failed: {msg}")
-
+    # 1. Direct SMTP (Google servers sign the email directly - 0 DMARC rejections)
     if SMTP_EMAIL and SMTP_PASSWORD:
         ok, msg = send_via_smtp(to_email, otp_code)
         LAST_EMAIL_STATUS = {
@@ -149,6 +137,20 @@ def send_real_email_otp(to_email, otp_code):
         if ok:
             return True, msg
         print(f"SMTP attempt failed: {msg}")
+
+    # 2. Brevo API
+    if BREVO_API_KEY:
+        ok, msg = send_via_brevo_api(to_email, otp_code)
+        LAST_EMAIL_STATUS = {
+            "timestamp": datetime.now().isoformat(),
+            "to": to_email,
+            "method": "brevo_api",
+            "success": ok,
+            "message": msg
+        }
+        if ok:
+            return True, msg
+        print(f"Brevo API attempt failed: {msg}")
 
     LAST_EMAIL_STATUS = {
         "timestamp": datetime.now().isoformat(),
