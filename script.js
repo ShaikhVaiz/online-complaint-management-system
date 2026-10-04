@@ -318,6 +318,68 @@ async function initStudentPage() {
     }
 }
 
+// Optional Image attachment & removal in description box
+let attachedImageData = null;
+
+const imageInput = document.getElementById("c_image");
+const removeImageBtn = document.getElementById("removeImageBtn");
+const imagePreviewContainer = document.getElementById("imagePreviewContainer");
+const imagePreview = document.getElementById("imagePreview");
+
+if (imageInput) {
+    imageInput.addEventListener("change", function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            alert("Please select a valid image file (JPG, PNG, WebP).");
+            imageInput.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const img = new Image();
+            img.onload = function() {
+                // Resize image client-side to max 900px wide for optimal performance
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 900;
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+                attachedImageData = canvas.toDataURL("image/jpeg", 0.82);
+                if (imagePreview) imagePreview.src = attachedImageData;
+                if (imagePreviewContainer) imagePreviewContainer.style.display = "block";
+                if (removeImageBtn) removeImageBtn.style.display = "inline-block";
+            };
+            img.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+if (removeImageBtn) {
+    removeImageBtn.addEventListener("click", function() {
+        attachedImageData = null;
+        if (imageInput) imageInput.value = "";
+        if (imagePreview) imagePreview.src = "";
+        if (imagePreviewContainer) imagePreviewContainer.style.display = "none";
+        removeImageBtn.style.display = "none";
+    });
+}
+
 // Student submits complaint
 const studentComplaintForm = document.getElementById("studentComplaintForm");
 if (studentComplaintForm) {
@@ -333,7 +395,8 @@ if (studentComplaintForm) {
             student_id: currentStudent ? currentStudent.student_id : document.getElementById("c_student_id").value,
             category: document.getElementById("c_category").value,
             title: document.getElementById("c_title").value.trim(),
-            description: document.getElementById("c_description").value.trim()
+            description: document.getElementById("c_description").value.trim(),
+            image_data: attachedImageData || null
         };
 
         try {
@@ -350,6 +413,14 @@ if (studentComplaintForm) {
                 document.getElementById("c_title").value = "";
                 document.getElementById("c_description").value = "";
                 document.getElementById("c_category").selectedIndex = 0;
+                
+                // Reset image preview & removal
+                attachedImageData = null;
+                if (imageInput) imageInput.value = "";
+                if (imagePreview) imagePreview.src = "";
+                if (imagePreviewContainer) imagePreviewContainer.style.display = "none";
+                if (removeImageBtn) removeImageBtn.style.display = "none";
+
                 loadStudentComplaints();
             } else {
                 throw new Error(data.message || "Failed to submit.");
@@ -366,6 +437,35 @@ if (studentComplaintForm) {
 }
 
 // Load complaints for this student
+let complaintPhotosMap = {};
+
+function openComplaintPhoto(complaintId) {
+    const imgData = complaintPhotosMap[complaintId];
+    if (!imgData) return;
+    let modal = document.getElementById("complaintImageModal");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "complaintImageModal";
+        modal.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); display:flex; align-items:center; justify-content:center; z-index:99999; padding:1.5rem; box-sizing:border-box;";
+        modal.innerHTML = `
+            <div style="position:relative; max-width:92vw; max-height:92vh; background:#fff; border-radius:12px; padding:10px; box-shadow:0 20px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; align-items:center;">
+                <button type="button" id="closeImgModalBtn" style="position:absolute; top:-14px; right:-14px; width:34px; height:34px; border-radius:50%; background:#ef4444; color:#fff; border:2px solid #fff; font-size:16px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">✕</button>
+                <img id="complaintModalImg" src="" style="max-width:88vw; max-height:82vh; border-radius:8px; object-fit:contain; display:block;">
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener("click", function(e) {
+            if (e.target === modal || e.target.id === "closeImgModalBtn") {
+                modal.style.display = "none";
+            }
+        });
+    }
+    const modalImg = document.getElementById("complaintModalImg");
+    if (modalImg) modalImg.src = imgData;
+    modal.style.display = "flex";
+}
+window.openComplaintPhoto = openComplaintPhoto;
+
 async function loadStudentComplaints() {
     const tableBody = document.getElementById("studentComplaintsTableBody");
     if (!tableBody) return;
@@ -383,6 +483,10 @@ async function loadStudentComplaints() {
             return;
         }
 
+        data.forEach(c => {
+            if (c.image_data) complaintPhotosMap[c.id] = c.image_data;
+        });
+
         tableBody.innerHTML = data.map(c => `
             <tr>
                 <td><strong>#${c.id}</strong></td>
@@ -390,6 +494,13 @@ async function loadStudentComplaints() {
                 <td>
                     <div style="font-weight:700; color:#0f172a;">${escapeHtml(c.title)}</div>
                     <div style="font-size:0.85rem; color:#475569; margin-top:0.25rem;">${escapeHtml(c.description)}</div>
+                    ${c.image_data ? `
+                        <div style="margin-top:0.35rem;">
+                            <button type="button" onclick="openComplaintPhoto(${c.id})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:600; color:#2563eb;">
+                                <img src="${c.image_data}" style="width:26px; height:26px; object-fit:cover; border-radius:4px;">
+                                <span>📷 View Image</span>
+                            </button>
+                        </div>` : ''}
                 </td>
                 <td>${getStatusBadge(c.status)}</td>
                 <td style="font-size:0.85rem; color:#64748b;">${formatDate(c.created_at)}</td>
@@ -472,6 +583,10 @@ function renderAdminTable(data) {
         return;
     }
 
+    data.forEach(c => {
+        if (c.image_data) complaintPhotosMap[c.id] = c.image_data;
+    });
+
     tableBody.innerHTML = data.map(c => `
         <tr>
             <td><strong>#${c.id}</strong></td>
@@ -483,6 +598,13 @@ function renderAdminTable(data) {
             <td>
                 <div style="font-weight:700; color:#0f172a;">${escapeHtml(c.title)}</div>
                 <div style="font-size:0.85rem; color:#475569; margin-top:0.2rem;">${escapeHtml(c.description)}</div>
+                ${c.image_data ? `
+                    <div style="margin-top:0.35rem;">
+                        <button type="button" onclick="openComplaintPhoto(${c.id})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:600; color:#2563eb;">
+                            <img src="${c.image_data}" style="width:26px; height:26px; object-fit:cover; border-radius:4px;">
+                            <span>📷 View Photo</span>
+                        </button>
+                    </div>` : ''}
             </td>
             <td>${getStatusBadge(c.status)}</td>
             <td>

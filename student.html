@@ -74,6 +74,22 @@
                 <div class="form-group">
                     <label for="c_description">Detailed Description <span class="req-star">*</span></label>
                     <textarea id="c_description" rows="4" placeholder="Explain the specific issue, exact room/location, and how it impacts classes..." required></textarea>
+                    
+                    <!-- Optional Image Attachment & Removal Feature -->
+                    <div style="margin-top: 0.65rem; padding: 0.75rem 1rem; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <label for="c_image" style="margin: 0; font-size: 0.88rem; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>📷</span> <span>Insert Image <span style="font-size: 0.78rem; font-weight: normal; color: #64748b;">(Optional)</span></span>
+                            </label>
+                            <button type="button" id="removeImageBtn" class="btn btn-sm btn-outline" style="display: none; padding: 0.25rem 0.65rem; font-size: 0.8rem; color: #ef4444; border-color: #fca5a5;">
+                                ❌ Remove Image
+                            </button>
+                        </div>
+                        <input type="file" id="c_image" accept="image/*" style="margin-top: 0.45rem; font-size: 0.85rem; width: 100%;">
+                        <div id="imagePreviewContainer" style="display: none; margin-top: 0.65rem;">
+                            <img id="imagePreview" src="" alt="Preview" style="max-height: 160px; max-width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: contain;">
+                        </div>
+                    </div>
                 </div>
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; flex-wrap:wrap; gap:1rem;">
