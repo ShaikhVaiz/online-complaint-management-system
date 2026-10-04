@@ -11,6 +11,9 @@ import json
 import random
 import time
 import sqlite3
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from flask import Flask, request, jsonify, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -18,6 +21,60 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__, static_folder=".", static_url_path="")
 app.secret_key = "eduresolve_mini_project_secret_key_2026"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# -------------------------------------------------------------
+# Real Email Dispatcher (Gmail SMTP)
+# -------------------------------------------------------------
+SMTP_EMAIL = os.environ.get("SMTP_EMAIL", "").strip()
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com").strip()
+SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+
+def send_real_email_otp(to_email, otp_code):
+    """Sends real OTP email via Gmail SMTP if credentials are configured in Vercel/env."""
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        return False, "SMTP not configured"
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "🔐 Password Reset OTP - Online Complaint Management System"
+        msg["From"] = f"Online Complaint Portal <{SMTP_EMAIL}>"
+        msg["To"] = to_email
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; color: #0f172a;">
+            <div style="max-width: 500px; margin: auto; background: #ffffff; border-radius: 12px; padding: 28px; border: 1px solid #e2e8f0;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: #1e3a8a; margin: 0;">Online Complaint Management System</h2>
+                    <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Campus Grievance Portal</p>
+                </div>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                <p>Hello,</p>
+                <p>You requested a password reset for your student account (<strong>{to_email}</strong>).</p>
+                <p>Your 6-digit One-Time Password (OTP) is:</p>
+                <div style="background: #eff6ff; border: 1.5px dashed #3b82f6; border-radius: 10px; padding: 18px; text-align: center; margin: 25px 0;">
+                    <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1d4ed8;">{otp_code}</span>
+                </div>
+                <p style="color: #64748b; font-size: 13px;">
+                    ⏱️ This OTP is valid for <strong>10 minutes</strong>. Do not share it with anyone.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(html_content, "html"))
+
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
+        server.quit()
+        return True, "Email sent successfully"
+    except Exception as e:
+        print(f"SMTP error sending OTP: {e}")
+        return False, str(e)
 
 # -------------------------------------------------------------
 # Database Connection Manager (Cloud MySQL with SQLite fallback)
@@ -179,7 +236,7 @@ def create_tables(cursor, db_type):
                 description TEXT NOT NULL,
                 status VARCHAR(50) DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+            ) AUTO_ID_CACHE = 1;
         """)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS password_resets (
@@ -234,6 +291,17 @@ def seed_defaults():
     try:
         cur = conn.cursor()
         create_tables(cur, db_type)
+
+        # Normalize TiDB 30000+ IDs and enforce sequential IDs starting from 1
+        if db_type == "mysql":
+            try:
+                cur.execute("ALTER TABLE complaints AUTO_ID_CACHE = 1")
+            except Exception:
+                pass
+            try:
+                cur.execute("UPDATE complaints SET id = (id - 30000) WHERE id >= 30001")
+            except Exception:
+                pass
         
         # Check admin
         cur.execute("SELECT id FROM admins WHERE email = 'admin@college.com'")
@@ -482,11 +550,23 @@ def send_otp():
         print(f"OTP Code: {otp_code} (Valid for 10 minutes)")
         print(f"======================================================\n")
 
-        return jsonify({
-            "success": True,
-            "message": f"6-digit OTP has been sent to {email}.",
-            "demo_otp": otp_code
-        })
+        # 4. Dispatch real email via Gmail SMTP
+        sent_real, smtp_msg = send_real_email_otp(email, otp_code)
+
+        if sent_real:
+            return jsonify({
+                "success": True,
+                "real_email_sent": True,
+                "message": f"6-digit OTP has been sent directly to your Gmail inbox ({email}). Please check your inbox or spam folder."
+            })
+        else:
+            print(f"Notice: Real SMTP dispatch not active: {smtp_msg}")
+            return jsonify({
+                "success": True,
+                "real_email_sent": False,
+                "demo_otp": otp_code,
+                "message": f"OTP generated! (Gmail SMTP not configured: use code below for demo)."
+            })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
@@ -647,8 +727,11 @@ def get_complaints():
         rows = cur.fetchall()
         results = []
         for r in rows:
+            raw_id = r["id"]
+            # TiDB Serverless allocates auto_increment in batches starting from 30001; normalize so IDs start from 1
+            normalized_id = (raw_id - 30000) if raw_id >= 30001 else raw_id
             results.append({
-                "id": r["id"],
+                "id": normalized_id,
                 "student_name": r["student_name"],
                 "student_id": r["student_id"],
                 "category": r["category"],
@@ -684,16 +767,17 @@ def create_complaint():
                 INSERT INTO complaints (student_name, student_id, category, title, description, status)
                 VALUES (%s, %s, %s, %s, %s, 'Pending')
             """, (name, sid, cat, title, desc))
-            new_id = cur.lastrowid
+            raw_id = cur.lastrowid
         else:
             cur.execute("""
                 INSERT INTO complaints (student_name, student_id, category, title, description, status)
                 VALUES (?, ?, ?, ?, ?, 'Pending')
             """, (name, sid, cat, title, desc))
             conn.commit()
-            new_id = cur.lastrowid
+            raw_id = cur.lastrowid
         cur.close()
         conn.close()
+        new_id = (raw_id - 30000) if raw_id >= 30001 else raw_id
         return jsonify({"success": True, "id": new_id, "message": "Complaint submitted successfully!"})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -710,10 +794,11 @@ def update_complaint_status(complaint_id):
     conn, db_type = get_db()
     try:
         cur = conn.cursor()
+        alt_id = complaint_id + 30000 if complaint_id < 30000 else complaint_id - 30000
         if db_type == "mysql":
-            cur.execute("UPDATE complaints SET status = %s WHERE id = %s", (new_status, complaint_id))
+            cur.execute("UPDATE complaints SET status = %s WHERE id = %s OR id = %s", (new_status, complaint_id, alt_id))
         else:
-            cur.execute("UPDATE complaints SET status = ? WHERE id = ?", (new_status, complaint_id))
+            cur.execute("UPDATE complaints SET status = ? WHERE id = ? OR id = ?", (new_status, complaint_id, alt_id))
             conn.commit()
         cur.close()
         conn.close()
@@ -727,10 +812,11 @@ def delete_complaint(complaint_id):
     conn, db_type = get_db()
     try:
         cur = conn.cursor()
+        alt_id = complaint_id + 30000 if complaint_id < 30000 else complaint_id - 30000
         if db_type == "mysql":
-            cur.execute("DELETE FROM complaints WHERE id = %s", (complaint_id,))
+            cur.execute("DELETE FROM complaints WHERE id = %s OR id = %s", (complaint_id, alt_id))
         else:
-            cur.execute("DELETE FROM complaints WHERE id = ?", (complaint_id,))
+            cur.execute("DELETE FROM complaints WHERE id = ? OR id = ?", (complaint_id, alt_id))
             conn.commit()
         cur.close()
         conn.close()
