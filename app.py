@@ -23,15 +23,76 @@ app.secret_key = "eduresolve_mini_project_secret_key_2026"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # -------------------------------------------------------------
-# Real Email Dispatcher (Gmail SMTP)
+# Real Email Dispatcher (Brevo REST API + SMTP Fallback)
 # -------------------------------------------------------------
+import urllib.request
+import json
+
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
+BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL", "").strip()
+
 SMTP_EMAIL = os.environ.get("SMTP_EMAIL", "").strip()
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com").strip()
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp-relay.brevo.com" if "brevo" in SMTP_EMAIL else "smtp.gmail.com").strip()
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
 
-def send_real_email_otp(to_email, otp_code):
-    """Sends real OTP email via Gmail SMTP if credentials are configured in Vercel/env."""
+def get_otp_html(to_email, otp_code):
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; color: #0f172a;">
+        <div style="max-width: 500px; margin: auto; background: #ffffff; border-radius: 12px; padding: 28px; border: 1px solid #e2e8f0;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #1e3a8a; margin: 0;">Online Complaint Management System</h2>
+                <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Campus Grievance Portal</p>
+            </div>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <p>Hello,</p>
+            <p>You requested a password reset for your student account (<strong>{to_email}</strong>).</p>
+            <p>Your 6-digit One-Time Password (OTP) is:</p>
+            <div style="background: #eff6ff; border: 1.5px dashed #3b82f6; border-radius: 10px; padding: 18px; text-align: center; margin: 25px 0;">
+                <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1d4ed8;">{otp_code}</span>
+            </div>
+            <p style="color: #64748b; font-size: 13px;">
+                ⏱️ This OTP is valid for <strong>10 minutes</strong>. Do not share it with anyone.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+def send_via_brevo_api(to_email, otp_code):
+    """Sends OTP using Brevo HTTPS REST API (no SMTP port blockage on serverless)."""
+    if not BREVO_API_KEY:
+        return False, "BREVO_API_KEY not configured"
+
+    sender = BREVO_SENDER_EMAIL or SMTP_EMAIL or "complaintmanagementonline@gmail.com"
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json"
+    }
+
+    payload = {
+        "sender": {"name": "College Complaint Portal", "email": sender},
+        "to": [{"email": to_email}],
+        "subject": "🔐 Password Reset OTP - Online Complaint Management System",
+        "htmlContent": get_otp_html(to_email, otp_code)
+    }
+
+    try:
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 201):
+                return True, "Brevo email sent successfully"
+            return False, f"Brevo returned status code {resp.status}"
+    except Exception as e:
+        print(f"Brevo API error sending OTP: {e}")
+        return False, str(e)
+
+def send_via_smtp(to_email, otp_code):
+    """Fallback standard SMTP sender."""
     if not SMTP_EMAIL or not SMTP_PASSWORD:
         return False, "SMTP not configured"
 
@@ -40,41 +101,30 @@ def send_real_email_otp(to_email, otp_code):
         msg["Subject"] = "🔐 Password Reset OTP - Online Complaint Management System"
         msg["From"] = f"Online Complaint Portal <{SMTP_EMAIL}>"
         msg["To"] = to_email
-
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: Arial, sans-serif; background: #f8fafc; padding: 20px; color: #0f172a;">
-            <div style="max-width: 500px; margin: auto; background: #ffffff; border-radius: 12px; padding: 28px; border: 1px solid #e2e8f0;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h2 style="color: #1e3a8a; margin: 0;">Online Complaint Management System</h2>
-                    <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Campus Grievance Portal</p>
-                </div>
-                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-                <p>Hello,</p>
-                <p>You requested a password reset for your student account (<strong>{to_email}</strong>).</p>
-                <p>Your 6-digit One-Time Password (OTP) is:</p>
-                <div style="background: #eff6ff; border: 1.5px dashed #3b82f6; border-radius: 10px; padding: 18px; text-align: center; margin: 25px 0;">
-                    <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1d4ed8;">{otp_code}</span>
-                </div>
-                <p style="color: #64748b; font-size: 13px;">
-                    ⏱️ This OTP is valid for <strong>10 minutes</strong>. Do not share it with anyone.
-                </p>
-            </div>
-        </body>
-        </html>
-        """
-        msg.attach(MIMEText(html_content, "html"))
+        msg.attach(MIMEText(get_otp_html(to_email, otp_code), "html"))
 
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
         server.starttls()
         server.login(SMTP_EMAIL, SMTP_PASSWORD)
         server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
         server.quit()
-        return True, "Email sent successfully"
+        return True, "SMTP email sent successfully"
     except Exception as e:
         print(f"SMTP error sending OTP: {e}")
         return False, str(e)
+
+def send_real_email_otp(to_email, otp_code):
+    """Sends real OTP via Brevo API first, with SMTP fallback."""
+    if BREVO_API_KEY:
+        ok, msg = send_via_brevo_api(to_email, otp_code)
+        if ok:
+            return True, msg
+        print(f"Brevo API attempt failed: {msg}")
+
+    if SMTP_EMAIL and SMTP_PASSWORD:
+        return send_via_smtp(to_email, otp_code)
+
+    return False, "Email service not configured (need BREVO_API_KEY or SMTP credentials)"
 
 # -------------------------------------------------------------
 # Database Connection Manager (Cloud MySQL with SQLite fallback)
