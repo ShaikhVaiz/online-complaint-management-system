@@ -28,6 +28,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 import urllib.request
 import json
 
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
 BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL", "").strip()
 
@@ -62,6 +63,39 @@ def get_otp_html(to_email, otp_code):
     """
 
 LAST_EMAIL_STATUS = {}
+
+def send_via_resend_api(to_email, otp_code):
+    """Sends OTP using Resend HTTPS REST API (DKIM/SPF authenticated by resend.dev)."""
+    if not RESEND_API_KEY:
+        return False, "RESEND_API_KEY not configured"
+
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {RESEND_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "from": "Online Complaint Portal <onboarding@resend.dev>",
+        "to": [to_email],
+        "subject": "🔐 Password Reset OTP - Online Complaint Management System",
+        "html": get_otp_html(to_email, otp_code)
+    }
+
+    try:
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8", errors="ignore")
+            if resp.status in (200, 201):
+                return True, f"Resend email sent: {body}"
+            return False, f"Resend status code {resp.status}: {body}"
+    except urllib.error.HTTPError as he:
+        body = he.read().decode("utf-8", errors="ignore")
+        print(f"Resend HTTP error: {he.code} {body}")
+        return False, f"Resend HTTP {he.code}: {body}"
+    except Exception as e:
+        print(f"Resend API error sending OTP: {e}")
+        return False, str(e)
 
 def send_via_brevo_api(to_email, otp_code):
     """Sends OTP using Brevo HTTPS REST API (no SMTP port blockage on serverless)."""
@@ -121,10 +155,24 @@ def send_via_smtp(to_email, otp_code):
         return False, str(e)
 
 def send_real_email_otp(to_email, otp_code):
-    """Sends real OTP via direct Gmail SMTP first (guarantees 100% inbox delivery), then Brevo API."""
+    """Sends real OTP via Resend API, Gmail SMTP, or Brevo API."""
     global LAST_EMAIL_STATUS
 
-    # 1. Direct SMTP (Google servers sign the email directly - 0 DMARC rejections)
+    # 1. Resend API (Most reliable for developer projects, full DKIM/SPF)
+    if RESEND_API_KEY:
+        ok, msg = send_via_resend_api(to_email, otp_code)
+        LAST_EMAIL_STATUS = {
+            "timestamp": datetime.now().isoformat(),
+            "to": to_email,
+            "method": "resend_api",
+            "success": ok,
+            "message": msg
+        }
+        if ok:
+            return True, msg
+        print(f"Resend API attempt failed: {msg}")
+
+    # 2. Direct SMTP (Google servers sign the email directly - 0 DMARC rejections)
     if SMTP_EMAIL and SMTP_PASSWORD:
         ok, msg = send_via_smtp(to_email, otp_code)
         LAST_EMAIL_STATUS = {
@@ -138,7 +186,7 @@ def send_real_email_otp(to_email, otp_code):
             return True, msg
         print(f"SMTP attempt failed: {msg}")
 
-    # 2. Brevo API
+    # 3. Brevo API
     if BREVO_API_KEY:
         ok, msg = send_via_brevo_api(to_email, otp_code)
         LAST_EMAIL_STATUS = {
@@ -157,9 +205,9 @@ def send_real_email_otp(to_email, otp_code):
         "to": to_email,
         "method": "none",
         "success": False,
-        "message": "Neither Brevo API nor SMTP configured or both failed"
+        "message": "Neither Resend, SMTP, nor Brevo configured or all failed"
     }
-    return False, "Email service not configured (need BREVO_API_KEY or SMTP credentials)"
+    return False, "Email service not configured (need RESEND_API_KEY, SMTP, or Brevo credentials)"
 
 # -------------------------------------------------------------
 # Database Connection Manager (Cloud MySQL with SQLite fallback)
@@ -791,6 +839,8 @@ def email_status():
         students_list = [str(e)]
 
     return jsonify({
+        "resend_configured": bool(RESEND_API_KEY),
+        "resend_key_prefix": (RESEND_API_KEY[:8] + "...") if RESEND_API_KEY else None,
         "brevo_configured": bool(BREVO_API_KEY),
         "brevo_key_prefix": (BREVO_API_KEY[:8] + "...") if BREVO_API_KEY else None,
         "brevo_sender": BREVO_SENDER_EMAIL or SMTP_EMAIL or "complaintmanagementonline@gmail.com",
@@ -813,6 +863,7 @@ def test_email():
         "success": ok,
         "result_message": msg,
         "last_status": LAST_EMAIL_STATUS,
+        "resend_configured": bool(RESEND_API_KEY),
         "brevo_configured": bool(BREVO_API_KEY),
         "smtp_configured": bool(SMTP_EMAIL and SMTP_PASSWORD)
     })
