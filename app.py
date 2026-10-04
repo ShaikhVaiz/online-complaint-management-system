@@ -61,6 +61,8 @@ def get_otp_html(to_email, otp_code):
     </html>
     """
 
+LAST_EMAIL_STATUS = {}
+
 def send_via_brevo_api(to_email, otp_code):
     """Sends OTP using Brevo HTTPS REST API (no SMTP port blockage on serverless)."""
     if not BREVO_API_KEY:
@@ -84,9 +86,14 @@ def send_via_brevo_api(to_email, otp_code):
     try:
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8", errors="ignore")
             if resp.status in (200, 201):
-                return True, "Brevo email sent successfully"
-            return False, f"Brevo returned status code {resp.status}"
+                return True, f"Brevo email sent (status {resp.status}): {body}"
+            return False, f"Brevo returned status code {resp.status}: {body}"
+    except urllib.error.HTTPError as he:
+        body = he.read().decode("utf-8", errors="ignore")
+        print(f"Brevo HTTP error: {he.code} {body}")
+        return False, f"Brevo HTTP {he.code}: {body}"
     except Exception as e:
         print(f"Brevo API error sending OTP: {e}")
         return False, str(e)
@@ -115,15 +122,41 @@ def send_via_smtp(to_email, otp_code):
 
 def send_real_email_otp(to_email, otp_code):
     """Sends real OTP via Brevo API first, with SMTP fallback."""
+    global LAST_EMAIL_STATUS
+
     if BREVO_API_KEY:
         ok, msg = send_via_brevo_api(to_email, otp_code)
+        LAST_EMAIL_STATUS = {
+            "timestamp": datetime.now().isoformat(),
+            "to": to_email,
+            "method": "brevo_api",
+            "success": ok,
+            "message": msg
+        }
         if ok:
             return True, msg
         print(f"Brevo API attempt failed: {msg}")
 
     if SMTP_EMAIL and SMTP_PASSWORD:
-        return send_via_smtp(to_email, otp_code)
+        ok, msg = send_via_smtp(to_email, otp_code)
+        LAST_EMAIL_STATUS = {
+            "timestamp": datetime.now().isoformat(),
+            "to": to_email,
+            "method": "smtp",
+            "success": ok,
+            "message": msg
+        }
+        if ok:
+            return True, msg
+        print(f"SMTP attempt failed: {msg}")
 
+    LAST_EMAIL_STATUS = {
+        "timestamp": datetime.now().isoformat(),
+        "to": to_email,
+        "method": "none",
+        "success": False,
+        "message": "Neither Brevo API nor SMTP configured or both failed"
+    }
     return False, "Email service not configured (need BREVO_API_KEY or SMTP credentials)"
 
 # -------------------------------------------------------------
@@ -733,6 +766,54 @@ def db_status():
             "error": str(e),
             "mysql_last_error": LAST_DB_ERROR
         }), 500
+
+@app.route("/api/email-status", methods=["GET"])
+def email_status():
+    """Diagnostic endpoint to inspect email dispatcher configuration and students."""
+    conn, db_type = get_db()
+    students_list = []
+    try:
+        cur = conn.cursor(dictionary=True) if db_type == "mysql" else conn.cursor()
+        cur.execute("SELECT id, full_name, student_id, email FROM students")
+        rows = cur.fetchall()
+        for r in rows:
+            students_list.append({
+                "id": r["id"],
+                "full_name": r["full_name"],
+                "student_id": r["student_id"],
+                "email": r["email"]
+            })
+        cur.close()
+        conn.close()
+    except Exception as e:
+        students_list = [str(e)]
+
+    return jsonify({
+        "brevo_configured": bool(BREVO_API_KEY),
+        "brevo_key_prefix": (BREVO_API_KEY[:8] + "...") if BREVO_API_KEY else None,
+        "brevo_sender": BREVO_SENDER_EMAIL or SMTP_EMAIL or "complaintmanagementonline@gmail.com",
+        "smtp_configured": bool(SMTP_EMAIL and SMTP_PASSWORD),
+        "smtp_email": SMTP_EMAIL,
+        "smtp_host": SMTP_HOST,
+        "last_attempt": LAST_EMAIL_STATUS,
+        "registered_students": students_list
+    })
+
+@app.route("/api/test-email", methods=["GET", "POST"])
+def test_email():
+    """Directly test email dispatch to a target email and return verbose result."""
+    target = request.args.get("to") or (request.get_json() or {}).get("to")
+    if not target:
+        return jsonify({"error": "Provide ?to=your_email@gmail.com"}), 400
+
+    ok, msg = send_real_email_otp(target, "123456")
+    return jsonify({
+        "success": ok,
+        "result_message": msg,
+        "last_status": LAST_EMAIL_STATUS,
+        "brevo_configured": bool(BREVO_API_KEY),
+        "smtp_configured": bool(SMTP_EMAIL and SMTP_PASSWORD)
+    })
 
 @app.route("/api/me", methods=["GET"])
 def get_current_user():
