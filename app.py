@@ -361,11 +361,13 @@ def create_tables(cursor, db_type):
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS complaints (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                complaint_no INT DEFAULT NULL,
                 student_name VARCHAR(100) NOT NULL,
                 student_id VARCHAR(50) NOT NULL,
                 category VARCHAR(50) NOT NULL,
                 title VARCHAR(200) NOT NULL,
                 description TEXT NOT NULL,
+                image_data LONGTEXT DEFAULT NULL,
                 status VARCHAR(50) DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) AUTO_ID_CACHE = 1;
@@ -400,11 +402,13 @@ def create_tables(cursor, db_type):
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS complaints (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                complaint_no INTEGER DEFAULT NULL,
                 student_name TEXT NOT NULL,
                 student_id TEXT NOT NULL,
                 category TEXT NOT NULL,
                 title TEXT NOT NULL,
                 description TEXT NOT NULL,
+                image_data TEXT DEFAULT NULL,
                 status TEXT DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -417,6 +421,23 @@ def create_tables(cursor, db_type):
             );
         """)
 
+    # Safe migrations for existing tables
+    try:
+        if db_type == "mysql":
+            cursor.execute("ALTER TABLE complaints ADD COLUMN complaint_no INT DEFAULT NULL")
+        else:
+            cursor.execute("ALTER TABLE complaints ADD COLUMN complaint_no INTEGER DEFAULT NULL")
+    except Exception:
+        pass
+
+    try:
+        if db_type == "mysql":
+            cursor.execute("ALTER TABLE complaints ADD COLUMN image_data LONGTEXT DEFAULT NULL")
+        else:
+            cursor.execute("ALTER TABLE complaints ADD COLUMN image_data TEXT DEFAULT NULL")
+    except Exception:
+        pass
+
 def seed_defaults():
     """Seeds default admin and test student account if not present."""
     conn, db_type = get_db()
@@ -424,16 +445,28 @@ def seed_defaults():
         cur = conn.cursor()
         create_tables(cur, db_type)
 
-        # Normalize TiDB 30000+ IDs and enforce sequential IDs starting from 1
-        if db_type == "mysql":
-            try:
-                cur.execute("ALTER TABLE complaints AUTO_ID_CACHE = 1")
-            except Exception:
-                pass
-            try:
-                cur.execute("UPDATE complaints SET id = (id - 30000) WHERE id >= 30001")
-            except Exception:
-                pass
+        # Enforce sequential IDs starting from 1 for all complaints
+        try:
+            cur.execute("SELECT id, complaint_no FROM complaints ORDER BY created_at ASC, id ASC")
+            existing_complaints = cur.fetchall()
+            needs_reindex = False
+            for expected_no, row in enumerate(existing_complaints, start=1):
+                c_no = row["complaint_no"] if isinstance(row, dict) else (row[1] if len(row) > 1 else None)
+                if c_no != expected_no:
+                    needs_reindex = True
+                    break
+
+            if needs_reindex:
+                for idx, row in enumerate(existing_complaints, start=1):
+                    r_id = row["id"] if isinstance(row, dict) else row[0]
+                    if db_type == "mysql":
+                        cur.execute("UPDATE complaints SET complaint_no = %s WHERE id = %s", (idx, r_id))
+                    else:
+                        cur.execute("UPDATE complaints SET complaint_no = ? WHERE id = ?", (idx, r_id))
+                if db_type == "sqlite":
+                    conn.commit()
+        except Exception as e_idx:
+            print(f"Notice: complaint_no migration: {e_idx}")
         
         # Check admin
         cur.execute("SELECT id FROM admins WHERE email = 'admin@college.com'")
@@ -473,14 +506,14 @@ def seed_defaults():
         cnt = cur.fetchone()[0]
         if cnt == 0:
             samples = [
-                ('Rahul Sharma', 'CS101', 'Hostel', 'Water Cooler Not Cooling', 'Water dispenser on 2nd floor is not cooling.', 'Pending'),
-                ('Rahul Sharma', 'CS101', 'Laboratory', 'Lab System Mouse Broken', 'Computer 14 in Electronics Lab has broken mouse.', 'In Progress'),
-                ('Rahul Sharma', 'CS101', 'Classroom', 'Fan Making Noise', 'Ceiling fan near blackboard in Room 301 is vibrating.', 'Resolved')
+                (1, 'Rahul Sharma', 'CS101', 'Hostel', 'Water Cooler Not Cooling', 'Water dispenser on 2nd floor is not cooling.', 'Pending'),
+                (2, 'Rahul Sharma', 'CS101', 'Laboratory', 'Lab System Mouse Broken', 'Computer 14 in Electronics Lab has broken mouse.', 'In Progress'),
+                (3, 'Rahul Sharma', 'CS101', 'Classroom', 'Fan Making Noise', 'Ceiling fan near blackboard in Room 301 is vibrating.', 'Resolved')
             ]
             if db_type == "mysql":
-                cur.executemany("INSERT INTO complaints (student_name, student_id, category, title, description, status) VALUES (%s, %s, %s, %s, %s, %s)", samples)
+                cur.executemany("INSERT INTO complaints (complaint_no, student_name, student_id, category, title, description, status) VALUES (%s, %s, %s, %s, %s, %s, %s)", samples)
             else:
-                cur.executemany("INSERT INTO complaints (student_name, student_id, category, title, description, status) VALUES (?, ?, ?, ?, ?, ?)", samples)
+                cur.executemany("INSERT INTO complaints (complaint_no, student_name, student_id, category, title, description, status) VALUES (?, ?, ?, ?, ?, ?, ?)", samples)
         
         if db_type == "sqlite":
             conn.commit()
@@ -911,28 +944,28 @@ def get_complaints():
         if session.get("role") == "student" and session.get("student_id"):
             sid = session["student_id"]
             if db_type == "mysql":
-                cur.execute("SELECT * FROM complaints WHERE student_id = %s ORDER BY id DESC", (sid,))
+                cur.execute("SELECT * FROM complaints WHERE student_id = %s ORDER BY COALESCE(complaint_no, id) DESC", (sid,))
             else:
-                cur.execute("SELECT * FROM complaints WHERE student_id = ? ORDER BY id DESC", (sid,))
+                cur.execute("SELECT * FROM complaints WHERE student_id = ? ORDER BY COALESCE(complaint_no, id) DESC", (sid,))
         else:
             # Admin sees all complaints
-            cur.execute("SELECT * FROM complaints ORDER BY id DESC")
+            cur.execute("SELECT * FROM complaints ORDER BY COALESCE(complaint_no, id) DESC")
         
         rows = cur.fetchall()
         results = []
         for r in rows:
-            raw_id = r["id"]
-            # TiDB Serverless allocates auto_increment in batches starting from 30001; normalize so IDs start from 1
-            normalized_id = (raw_id - 30000) if raw_id >= 30001 else raw_id
+            row_dict = dict(r) if db_type == "sqlite" else r
+            display_id = row_dict.get("complaint_no") or row_dict.get("id")
             results.append({
-                "id": normalized_id,
-                "student_name": r["student_name"],
-                "student_id": r["student_id"],
-                "category": r["category"],
-                "title": r["title"],
-                "description": r["description"],
-                "status": r["status"],
-                "created_at": str(r["created_at"])
+                "id": display_id,
+                "student_name": row_dict["student_name"],
+                "student_id": row_dict["student_id"],
+                "category": row_dict["category"],
+                "title": row_dict["title"],
+                "description": row_dict["description"],
+                "image_data": row_dict.get("image_data") or None,
+                "status": row_dict["status"],
+                "created_at": str(row_dict["created_at"])
             })
         cur.close()
         conn.close()
@@ -949,30 +982,44 @@ def create_complaint():
     cat = (data.get("category") or "").strip()
     title = (data.get("title") or "").strip()
     desc = (data.get("description") or "").strip()
+    img = (data.get("image_data") or "").strip() or None
 
     if not name or not sid or not cat or not title or not desc:
         return jsonify({"success": False, "message": "All fields are required."}), 400
 
     conn, db_type = get_db()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True) if db_type == "mysql" else conn.cursor()
+        
+        # Calculate next complaint_no (strictly starts from 1, then 2, 3, 4...)
+        cur.execute("SELECT COALESCE(MAX(complaint_no), 0) FROM complaints")
+        max_row = cur.fetchone()
+        if max_row:
+            cur_max = (max_row["COALESCE(MAX(complaint_no), 0)"] if isinstance(max_row, dict) else max_row[0]) or 0
+        else:
+            cur_max = 0
+        if cur_max == 0:
+            cur.execute("SELECT COUNT(*) FROM complaints")
+            cnt_row = cur.fetchone()
+            cur_max = (cnt_row["COUNT(*)"] if isinstance(cnt_row, dict) else cnt_row[0]) if cnt_row else 0
+
+        next_no = cur_max + 1
+
         if db_type == "mysql":
             cur.execute("""
-                INSERT INTO complaints (student_name, student_id, category, title, description, status)
-                VALUES (%s, %s, %s, %s, %s, 'Pending')
-            """, (name, sid, cat, title, desc))
-            raw_id = cur.lastrowid
+                INSERT INTO complaints (complaint_no, student_name, student_id, category, title, description, image_data, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'Pending')
+            """, (next_no, name, sid, cat, title, desc, img))
         else:
             cur.execute("""
-                INSERT INTO complaints (student_name, student_id, category, title, description, status)
-                VALUES (?, ?, ?, ?, ?, 'Pending')
-            """, (name, sid, cat, title, desc))
+                INSERT INTO complaints (complaint_no, student_name, student_id, category, title, description, image_data, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')
+            """, (next_no, name, sid, cat, title, desc, img))
             conn.commit()
-            raw_id = cur.lastrowid
+
         cur.close()
         conn.close()
-        new_id = (raw_id - 30000) if raw_id >= 30001 else raw_id
-        return jsonify({"success": True, "id": new_id, "message": "Complaint submitted successfully!"})
+        return jsonify({"success": True, "id": next_no, "message": "Complaint submitted successfully!"})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
@@ -988,11 +1035,10 @@ def update_complaint_status(complaint_id):
     conn, db_type = get_db()
     try:
         cur = conn.cursor()
-        alt_id = complaint_id + 30000 if complaint_id < 30000 else complaint_id - 30000
         if db_type == "mysql":
-            cur.execute("UPDATE complaints SET status = %s WHERE id = %s OR id = %s", (new_status, complaint_id, alt_id))
+            cur.execute("UPDATE complaints SET status = %s WHERE complaint_no = %s OR id = %s", (new_status, complaint_id, complaint_id))
         else:
-            cur.execute("UPDATE complaints SET status = ? WHERE id = ? OR id = ?", (new_status, complaint_id, alt_id))
+            cur.execute("UPDATE complaints SET status = ? WHERE complaint_no = ? OR id = ?", (new_status, complaint_id, complaint_id))
             conn.commit()
         cur.close()
         conn.close()
@@ -1006,11 +1052,10 @@ def delete_complaint(complaint_id):
     conn, db_type = get_db()
     try:
         cur = conn.cursor()
-        alt_id = complaint_id + 30000 if complaint_id < 30000 else complaint_id - 30000
         if db_type == "mysql":
-            cur.execute("DELETE FROM complaints WHERE id = %s OR id = %s", (complaint_id, alt_id))
+            cur.execute("DELETE FROM complaints WHERE complaint_no = %s OR id = %s", (complaint_id, complaint_id))
         else:
-            cur.execute("DELETE FROM complaints WHERE id = ? OR id = ?", (complaint_id, alt_id))
+            cur.execute("DELETE FROM complaints WHERE complaint_no = ? OR id = ?", (complaint_id, complaint_id))
             conn.commit()
         cur.close()
         conn.close()

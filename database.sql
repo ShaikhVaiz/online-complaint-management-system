@@ -28,11 +28,13 @@ CREATE TABLE IF NOT EXISTS students (
 -- 3. Complaints Table
 CREATE TABLE IF NOT EXISTS complaints (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    complaint_no INT DEFAULT NULL,
     student_name VARCHAR(100) NOT NULL,
     student_id VARCHAR(50) NOT NULL,
     category VARCHAR(50) NOT NULL,
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
+    image_data LONGTEXT DEFAULT NULL,
     status VARCHAR(50) DEFAULT 'Pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
