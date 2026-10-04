@@ -72,11 +72,12 @@ def send_via_resend_api(to_email, otp_code):
     url = "https://api.resend.com/emails"
     headers = {
         "Authorization": f"Bearer {RESEND_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "ComplaintManagementPortal/1.0"
     }
 
     payload = {
-        "from": "Online Complaint Portal <onboarding@resend.dev>",
+        "from": "onboarding@resend.dev",
         "to": [to_email],
         "subject": "🔐 Password Reset OTP - Online Complaint Management System",
         "html": get_otp_html(to_email, otp_code)
@@ -158,6 +159,8 @@ def send_real_email_otp(to_email, otp_code):
     """Sends real OTP via Resend API, Gmail SMTP, or Brevo API."""
     global LAST_EMAIL_STATUS
 
+    last_error_msg = "No email provider configured"
+
     # 1. Resend API (Most reliable for developer projects, full DKIM/SPF)
     if RESEND_API_KEY:
         ok, msg = send_via_resend_api(to_email, otp_code)
@@ -170,7 +173,8 @@ def send_real_email_otp(to_email, otp_code):
         }
         if ok:
             return True, msg
-        print(f"Resend API attempt failed: {msg}")
+        last_error_msg = f"Resend error: {msg}"
+        print(last_error_msg)
 
     # 2. Direct SMTP (Google servers sign the email directly - 0 DMARC rejections)
     if SMTP_EMAIL and SMTP_PASSWORD:
@@ -184,7 +188,8 @@ def send_real_email_otp(to_email, otp_code):
         }
         if ok:
             return True, msg
-        print(f"SMTP attempt failed: {msg}")
+        last_error_msg = f"SMTP error: {msg}"
+        print(last_error_msg)
 
     # 3. Brevo API
     if BREVO_API_KEY:
@@ -198,16 +203,10 @@ def send_real_email_otp(to_email, otp_code):
         }
         if ok:
             return True, msg
-        print(f"Brevo API attempt failed: {msg}")
+        last_error_msg = f"Brevo error: {msg}"
+        print(last_error_msg)
 
-    LAST_EMAIL_STATUS = {
-        "timestamp": datetime.now().isoformat(),
-        "to": to_email,
-        "method": "none",
-        "success": False,
-        "message": "Neither Resend, SMTP, nor Brevo configured or all failed"
-    }
-    return False, "Email service not configured (need RESEND_API_KEY, SMTP, or Brevo credentials)"
+    return False, last_error_msg
 
 # -------------------------------------------------------------
 # Database Connection Manager (Cloud MySQL with SQLite fallback)
@@ -457,6 +456,17 @@ def seed_defaults():
             else:
                 cur.execute("INSERT INTO students (full_name, student_id, email, password) VALUES (?, ?, ?, ?)",
                             ("Rahul Sharma", "CS101", "rahul.sharma@college.com", stu_pwd))
+
+        # Check user student account
+        cur.execute("SELECT id FROM students WHERE email = 'shaikhv750@gmail.com'")
+        if not cur.fetchone():
+            vaiz_pwd = generate_password_hash("Student@123")
+            if db_type == "mysql":
+                cur.execute("INSERT INTO students (full_name, student_id, email, password) VALUES (%s, %s, %s, %s)",
+                            ("shaikh vaiz faiyaz", "CS106", "shaikhv750@gmail.com", vaiz_pwd))
+            else:
+                cur.execute("INSERT INTO students (full_name, student_id, email, password) VALUES (?, ?, ?, ?)",
+                            ("shaikh vaiz faiyaz", "CS106", "shaikhv750@gmail.com", vaiz_pwd))
 
         # Check sample complaints
         cur.execute("SELECT COUNT(*) FROM complaints")
