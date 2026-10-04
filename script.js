@@ -177,14 +177,20 @@ if (requestOtpForm) {
             if (res.ok && data.success) {
                 requestedResetEmail = email;
                 msg.className = "message-box success";
-                msg.innerHTML = `✅ 6-Digit OTP sent to <strong>${escapeHtml(email)}</strong>!<br><small style="color:#0f172a; font-weight:700;">🔑 Verification OTP: ${data.demo_otp || ''}</small>`;
+                if (data.real_email_sent) {
+                    msg.innerHTML = `📩 6-Digit OTP sent directly to your Gmail inbox (<strong>${escapeHtml(email)}</strong>)!<br><small style="color:#1e3a8a; font-weight:600;">Please check your Gmail Inbox or Spam/Junk folder.</small>`;
+                } else if (data.demo_otp) {
+                    msg.innerHTML = `✅ 6-Digit OTP generated!<br><small style="color:#0f172a; font-weight:700;">🔑 Verification OTP: ${data.demo_otp}</small><br><small style="color:#475569; font-size:12px;">(Gmail SMTP credentials not configured yet in Vercel. Use code above for testing.)</small>`;
+                } else {
+                    msg.innerHTML = `✅ 6-Digit OTP sent to <strong>${escapeHtml(email)}</strong>!`;
+                }
                 
                 document.getElementById("fp-step-1").style.display = "none";
                 document.getElementById("fp-step-2").style.display = "block";
                 setTimeout(() => {
                     const otpInput = document.getElementById("fp_otp");
                     if (otpInput) {
-                        otpInput.value = data.demo_otp || "";
+                        otpInput.value = "";
                         otpInput.focus();
                     }
                 }, 300);
