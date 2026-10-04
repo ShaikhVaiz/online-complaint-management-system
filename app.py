@@ -53,11 +53,28 @@ if os.environ.get("VERCEL"):
 else:
     SQLITE_PATH = os.path.join(BASE_DIR, "complaint_db.sqlite")
 
+LAST_DB_ERROR = None
+
 def connect_mysql():
-    """Attempts connection to MySQL with SSL auto-negotiation for Cloud providers."""
+    """Attempts connection to MySQL with SSL auto-negotiation for Cloud providers (TiDB, Aiven, etc.)."""
+    global LAST_DB_ERROR
     import mysql.connector
-    
-    params = {
+
+    ca_file = None
+    try:
+        import certifi
+        ca_file = certifi.where()
+    except Exception:
+        for candidate in [
+            "/etc/ssl/certs/ca-certificates.crt",
+            "/etc/pki/tls/certs/ca-bundle.crt",
+            "/etc/ssl/cert.pem"
+        ]:
+            if os.path.exists(candidate):
+                ca_file = candidate
+                break
+
+    base_params = {
         "host": MYSQL_HOST,
         "user": MYSQL_USER,
         "password": MYSQL_PASS,
@@ -65,30 +82,44 @@ def connect_mysql():
         "port": MYSQL_PORT,
         "autocommit": True
     }
-    
-    # 1. Try direct connection
-    try:
-        return mysql.connector.connect(**params)
-    except Exception:
-        # 2. If remote host, try with SSL enabled (required by Aiven, TiDB Cloud, etc.)
-        if MYSQL_HOST not in ("127.0.0.1", "localhost"):
-            try:
-                ssl_params = dict(params)
+
+    # If remote host (TiDB Cloud, Aiven, etc.), use SSL with CA cert
+    if MYSQL_HOST not in ("127.0.0.1", "localhost"):
+        try:
+            ssl_params = dict(base_params)
+            if ca_file:
+                ssl_params["ssl_ca"] = ca_file
+                ssl_params["ssl_verify_cert"] = True
+            else:
                 ssl_params["ssl_disabled"] = False
-                return mysql.connector.connect(**ssl_params)
+            return mysql.connector.connect(**ssl_params)
+        except Exception as e1:
+            try:
+                ssl_params2 = dict(base_params)
+                ssl_params2["ssl_disabled"] = False
+                return mysql.connector.connect(**ssl_params2)
             except Exception:
                 pass
-        raise
+            try:
+                return mysql.connector.connect(**base_params)
+            except Exception:
+                LAST_DB_ERROR = str(e1)
+                raise e1
+
+    # Local direct connection
+    return mysql.connector.connect(**base_params)
 
 def get_db():
     """Returns (connection, db_type)."""
-    global USE_SQLITE
+    global USE_SQLITE, LAST_DB_ERROR
 
     if not USE_SQLITE:
         try:
             conn = connect_mysql()
+            LAST_DB_ERROR = None
             return conn, "mysql"
         except Exception as err:
+            LAST_DB_ERROR = str(err)
             # Try to auto-create MySQL database if permitted
             try:
                 import mysql.connector
@@ -101,10 +132,12 @@ def get_db():
                 root_conn.close()
 
                 conn = connect_mysql()
+                LAST_DB_ERROR = None
                 return conn, "mysql"
-            except Exception:
+            except Exception as e2:
+                LAST_DB_ERROR = f"Connection failed: {err} | DB Create: {e2}"
                 if os.environ.get("MYSQL_HOST") or os.environ.get("DATABASE_URL") or os.environ.get("TIDB_HOST"):
-                    print(f"Notice: Remote MySQL connection could not be established ({err}). Falling back to SQLite.")
+                    print(f"Notice: Remote MySQL connection failed ({LAST_DB_ERROR}). Falling back to SQLite.")
                 USE_SQLITE = True
 
     # Fallback: SQLite
@@ -115,7 +148,7 @@ def get_db():
     return conn, "sqlite"
 
 def create_tables(cursor, db_type):
-    """Creates schema for admins, students, and complaints."""
+    """Creates schema for admins, students, complaints, and password_resets."""
     if db_type == "mysql":
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS admins (
@@ -148,6 +181,13 @@ def create_tables(cursor, db_type):
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS password_resets (
+                email VARCHAR(100) PRIMARY KEY,
+                otp VARCHAR(10) NOT NULL,
+                expires_at INT NOT NULL
+            );
+        """)
     else:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS admins (
@@ -178,6 +218,13 @@ def create_tables(cursor, db_type):
                 description TEXT NOT NULL,
                 status TEXT DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS password_resets (
+                email TEXT PRIMARY KEY,
+                otp TEXT NOT NULL,
+                expires_at INTEGER NOT NULL
             );
         """)
 
@@ -385,20 +432,51 @@ def send_otp():
             cur.execute("SELECT id, full_name, email FROM students WHERE email = ?", (email,))
         
         student = cur.fetchone()
-        cur.close()
-        conn.close()
-
         if not student:
+            cur.close()
+            conn.close()
             return jsonify({"success": False, "message": "No student account found with this email address."}), 404
 
         # Generate 6-digit OTP
         otp_code = str(random.randint(100000, 999999))
+        expires_at = int(time.time() + 600)  # valid for 10 minutes
+
+        # 1. Save in Flask session cookie (persists across serverless instances in client browser)
+        session["reset_email"] = email
+        session["reset_otp"] = otp_code
+        session["reset_expires"] = expires_at
+
+        # 2. Save in database password_resets table
+        try:
+            if db_type == "mysql":
+                cur.execute("""
+                    INSERT INTO password_resets (email, otp, expires_at)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE otp = VALUES(otp), expires_at = VALUES(expires_at)
+                """, (email, otp_code, expires_at))
+            else:
+                cur.execute("""
+                    INSERT OR REPLACE INTO password_resets (email, otp, expires_at)
+                    VALUES (?, ?, ?)
+                """, (email, otp_code, expires_at))
+                conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as dbe:
+            print(f"Notice: Password reset DB record: {dbe}")
+            try:
+                cur.close()
+                conn.close()
+            except Exception:
+                pass
+
+        # 3. Save in in-memory dict as backup
         otp_store[email] = {
             "otp": otp_code,
-            "expires_at": time.time() + 600  # valid for 10 minutes
+            "expires_at": expires_at
         }
 
-        print(f"\n[EMAIL OTP SIMULATION] ===============================")
+        print(f"\n[EMAIL OTP DISPATCH] ===============================")
         print(f"To: {email}")
         print(f"Subject: Your Password Reset OTP for Online Complaint Portal")
         print(f"OTP Code: {otp_code} (Valid for 10 minutes)")
@@ -426,17 +504,44 @@ def verify_and_reset():
     if len(new_password) < 6:
         return jsonify({"success": False, "message": "New password must be at least 6 characters long."}), 400
 
-    record = otp_store.get(email)
-    if not record:
-        return jsonify({"success": False, "message": "No OTP was requested for this email or it has expired."}), 400
+    now = time.time()
+    valid = False
 
-    if time.time() > record["expires_at"]:
-        otp_store.pop(email, None)
-        return jsonify({"success": False, "message": "OTP has expired. Please request a new one."}), 400
+    # 1. Check Flask signed session cookie
+    if session.get("reset_email") == email and session.get("reset_otp") == otp_entered:
+        if now <= session.get("reset_expires", 0):
+            valid = True
 
-    if record["otp"] != otp_entered:
-        return jsonify({"success": False, "message": "Invalid OTP code. Please check and re-enter."}), 400
+    # 2. Check Database password_resets table
+    if not valid:
+        try:
+            conn, db_type = get_db()
+            cur = conn.cursor(dictionary=True) if db_type == "mysql" else conn.cursor()
+            if db_type == "mysql":
+                cur.execute("SELECT otp, expires_at FROM password_resets WHERE email = %s", (email,))
+            else:
+                cur.execute("SELECT otp, expires_at FROM password_resets WHERE email = ?", (email,))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            if row:
+                r_otp = row["otp"] if isinstance(row, dict) else row[0]
+                r_exp = row["expires_at"] if isinstance(row, dict) else row[1]
+                if str(r_otp) == otp_entered and now <= int(r_exp):
+                    valid = True
+        except Exception as e_db:
+            print(f"Notice: OTP DB check: {e_db}")
 
+    # 3. Check in-memory store
+    if not valid and email in otp_store:
+        record = otp_store[email]
+        if record["otp"] == otp_entered and now <= record["expires_at"]:
+            valid = True
+
+    if not valid:
+        return jsonify({"success": False, "message": "Invalid or expired OTP code. Please check and re-enter."}), 400
+
+    # OTP is valid, update student password in database
     conn, db_type = get_db()
     try:
         cur = conn.cursor()
@@ -444,14 +549,19 @@ def verify_and_reset():
 
         if db_type == "mysql":
             cur.execute("UPDATE students SET password = %s WHERE email = %s", (hashed_pwd, email))
+            cur.execute("DELETE FROM password_resets WHERE email = %s", (email,))
         else:
             cur.execute("UPDATE students SET password = ? WHERE email = ?", (hashed_pwd, email))
+            cur.execute("DELETE FROM password_resets WHERE email = ?", (email,))
             conn.commit()
 
         cur.close()
         conn.close()
 
-        # Invalidate OTP after successful reset
+        # Invalidate OTP stores
+        session.pop("reset_otp", None)
+        session.pop("reset_email", None)
+        session.pop("reset_expires", None)
         otp_store.pop(email, None)
 
         return jsonify({
@@ -460,6 +570,39 @@ def verify_and_reset():
         })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/db-status", methods=["GET"])
+def db_status():
+    """Diagnostic endpoint to inspect active database engine and health."""
+    global USE_SQLITE, LAST_DB_ERROR
+    conn, db_type = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM students")
+        row = cur.fetchone()
+        stu_cnt = row[0] if row else 0
+        cur.execute("SELECT COUNT(*) FROM complaints")
+        row2 = cur.fetchone()
+        comp_cnt = row2[0] if row2 else 0
+        cur.close()
+        conn.close()
+        return jsonify({
+            "status": "connected",
+            "active_database": db_type,
+            "host": MYSQL_HOST if db_type == "mysql" else "local_sqlite",
+            "database_name": MYSQL_DB if db_type == "mysql" else "complaint_db.sqlite",
+            "total_students": stu_cnt,
+            "total_complaints": comp_cnt,
+            "is_vercel": bool(os.environ.get("VERCEL")),
+            "mysql_last_error": LAST_DB_ERROR
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "active_database": db_type,
+            "error": str(e),
+            "mysql_last_error": LAST_DB_ERROR
+        }), 500
 
 @app.route("/api/me", methods=["GET"])
 def get_current_user():
