@@ -240,7 +240,7 @@ if os.environ.get("VERCEL"):
         except Exception:
             pass
 else:
-    SQLITE_PATH = os.path.join(BASE_DIR, "complaint_db.sqlite")
+    SQLITE_PATH = os.environ.get("SQLITE_PATH") or os.path.join(BASE_DIR, "complaint_db.sqlite")
 
 LAST_DB_ERROR = None
 
@@ -298,9 +298,11 @@ def connect_mysql():
     # Local direct connection
     return mysql.connector.connect(**base_params)
 
+_SQLITE_INITIALIZED = False
+
 def get_db():
     """Returns (connection, db_type)."""
-    global USE_SQLITE, LAST_DB_ERROR
+    global USE_SQLITE, LAST_DB_ERROR, _SQLITE_INITIALIZED
 
     if not USE_SQLITE:
         try:
@@ -332,8 +334,10 @@ def get_db():
     # Fallback: SQLite
     conn = sqlite3.connect(SQLITE_PATH)
     conn.row_factory = sqlite3.Row
-    create_tables(conn.cursor(), "sqlite")
-    conn.commit()
+    if not _SQLITE_INITIALIZED:
+        create_tables(conn.cursor(), "sqlite")
+        conn.commit()
+        _SQLITE_INITIALIZED = True
     return conn, "sqlite"
 
 def create_tables(cursor, db_type):
@@ -435,6 +439,12 @@ def create_tables(cursor, db_type):
             cursor.execute("ALTER TABLE complaints ADD COLUMN image_data LONGTEXT DEFAULT NULL")
         else:
             cursor.execute("ALTER TABLE complaints ADD COLUMN image_data TEXT DEFAULT NULL")
+    except Exception:
+        pass
+
+    try:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_comp_no ON complaints (complaint_no)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_comp_sid ON complaints (student_id)")
     except Exception:
         pass
 
@@ -935,27 +945,33 @@ def logout():
 # -------------------------------------------------------------
 @app.route("/api/complaints", methods=["GET"])
 def get_complaints():
-    """Fetch complaints list (filtered by student if logged in as student)."""
+    """Fetch complaints list (filtered by student if logged in as student). Optimizes response by omitting large Base64 images."""
     conn, db_type = get_db()
+    include_images = request.args.get("include_images", "false").lower() == "true"
     try:
         cur = conn.cursor(dictionary=True) if db_type == "mysql" else conn.cursor()
+        
+        # Omit heavy image_data column unless explicitly requested
+        img_col = "image_data," if include_images else "(CASE WHEN image_data IS NOT NULL AND image_data != '' THEN 1 ELSE 0 END) AS has_image,"
         
         # If student is logged in, show only their complaints
         if session.get("role") == "student" and session.get("student_id"):
             sid = session["student_id"]
             if db_type == "mysql":
-                cur.execute("SELECT * FROM complaints WHERE student_id = %s ORDER BY COALESCE(complaint_no, id) DESC", (sid,))
+                cur.execute(f"SELECT id, complaint_no, student_name, student_id, category, title, description, {img_col} status, created_at FROM complaints WHERE student_id = %s ORDER BY complaint_no DESC, id DESC", (sid,))
             else:
-                cur.execute("SELECT * FROM complaints WHERE student_id = ? ORDER BY COALESCE(complaint_no, id) DESC", (sid,))
+                cur.execute(f"SELECT id, complaint_no, student_name, student_id, category, title, description, {img_col} status, created_at FROM complaints WHERE student_id = ? ORDER BY complaint_no DESC, id DESC", (sid,))
         else:
             # Admin sees all complaints
-            cur.execute("SELECT * FROM complaints ORDER BY COALESCE(complaint_no, id) DESC")
+            cur.execute(f"SELECT id, complaint_no, student_name, student_id, category, title, description, {img_col} status, created_at FROM complaints ORDER BY complaint_no DESC, id DESC")
         
         rows = cur.fetchall()
         results = []
         for r in rows:
             row_dict = dict(r) if db_type == "sqlite" else r
             display_id = row_dict.get("complaint_no") or row_dict.get("id")
+            has_img = bool(row_dict.get("image_data")) if include_images else bool(row_dict.get("has_image"))
+            img_data = row_dict.get("image_data") if include_images else None
             results.append({
                 "id": display_id,
                 "student_name": row_dict["student_name"],
@@ -963,7 +979,8 @@ def get_complaints():
                 "category": row_dict["category"],
                 "title": row_dict["title"],
                 "description": row_dict["description"],
-                "image_data": row_dict.get("image_data") or None,
+                "has_image": has_img,
+                "image_data": img_data,
                 "status": row_dict["status"],
                 "created_at": str(row_dict["created_at"])
             })
@@ -972,6 +989,27 @@ def get_complaints():
         return jsonify(results)
     except Exception as e:
         return jsonify({"error": str(e), "message": "Failed to fetch complaints"}), 500
+
+@app.route("/api/complaints/<int:complaint_id>/image", methods=["GET"])
+def get_complaint_image(complaint_id):
+    """Fetch complaint image on-demand by complaint_no or id."""
+    conn, db_type = get_db()
+    try:
+        cur = conn.cursor(dictionary=True) if db_type == "mysql" else conn.cursor()
+        if db_type == "mysql":
+            cur.execute("SELECT image_data FROM complaints WHERE complaint_no = %s OR id = %s LIMIT 1", (complaint_id, complaint_id))
+        else:
+            cur.execute("SELECT image_data FROM complaints WHERE complaint_no = ? OR id = ? LIMIT 1", (complaint_id, complaint_id))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not row:
+            return jsonify({"success": False, "message": "Complaint not found"}), 404
+        row_dict = dict(row) if db_type == "sqlite" else row
+        img = row_dict.get("image_data") or None
+        return jsonify({"success": True, "id": complaint_id, "image_data": img})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route("/api/complaints", methods=["POST"])
 def create_complaint():

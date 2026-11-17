@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS complaints (
     description TEXT NOT NULL,
     image_data LONGTEXT DEFAULT NULL,
     status VARCHAR(50) DEFAULT 'Pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_complaint_no (complaint_no),
+    INDEX idx_student_id (student_id)
 );
 
 -- Default Admin Account (Email: admin@college.com | Password: Admin@123)

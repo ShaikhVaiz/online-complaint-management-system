@@ -390,14 +390,14 @@ select:-webkit-autofill {
 }
 
 .message-box.success {
-    display: block;
+    display: block !important;
     background-color: #ecfdf5;
     color: #065f46;
     border: 1.5px solid #6ee7b7;
 }
 
 .message-box.error {
-    display: block;
+    display: block !important;
     background-color: #fef2f2;
     color: #991b1b;
     border: 1.5px solid #fca5a5;

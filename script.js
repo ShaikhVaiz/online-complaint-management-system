@@ -7,13 +7,32 @@
 // 1. Authentication Handlers (Login, Register, Logout)
 // -------------------------------------------------------------
 
+// Global message box helpers for auth forms
+function showAuthMessage(text, type = "error") {
+    const msg = document.getElementById("authMessage");
+    if (!msg) return;
+    msg.className = `message-box ${type}`;
+    msg.style.display = "block";
+    const prefix = type === "error" ? "❌ " : (type === "success" ? "" : "ℹ️ ");
+    msg.innerText = (text.startsWith("❌") || text.startsWith("🎉") || text.startsWith("✅")) ? text : `${prefix}${text}`;
+}
+
+function clearAuthMessage() {
+    const msg = document.getElementById("authMessage");
+    if (!msg) return;
+    msg.className = "message-box";
+    msg.innerText = "";
+    msg.style.display = "none";
+}
+window.showAuthMessage = showAuthMessage;
+window.clearAuthMessage = clearAuthMessage;
+
 // Student Login Form
 const studentLoginForm = document.getElementById("studentLoginForm");
 if (studentLoginForm) {
     studentLoginForm.addEventListener("submit", async function (e) {
         e.preventDefault();
         const btn = document.getElementById("studentLoginBtn");
-        const msg = document.getElementById("authMessage");
         btn.disabled = true;
         btn.innerText = "Signing in...";
 
@@ -32,15 +51,13 @@ if (studentLoginForm) {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                msg.className = "message-box success";
-                msg.innerText = "✅ Login successful! Redirecting to Student Portal...";
+                showAuthMessage("✅ Login successful! Redirecting to Student Portal...", "success");
                 setTimeout(() => { window.location.href = "student.html"; }, 800);
             } else {
                 throw new Error(data.message || "Invalid credentials.");
             }
         } catch (err) {
-            msg.className = "message-box error";
-            msg.innerText = `❌ ${err.message}`;
+            showAuthMessage(err.message, "error");
             btn.disabled = false;
             btn.innerText = "Sign In to Student Portal";
         }
@@ -53,20 +70,25 @@ if (studentRegisterForm) {
     studentRegisterForm.addEventListener("submit", async function (e) {
         e.preventDefault();
         const btn = document.getElementById("studentRegisterBtn");
-        const msg = document.getElementById("authMessage");
 
+        const fullname = document.getElementById("reg_fullname").value.trim();
+        const studentId = document.getElementById("reg_student_id").value.trim();
+        const email = document.getElementById("reg_email").value.trim();
         const pwd = document.getElementById("reg_password").value;
         const confirmPwd = document.getElementById("reg_confirm_password").value;
 
+        if (!fullname || !studentId || !email || !pwd) {
+            showAuthMessage("All fields are required. Please fill in all details.", "error");
+            return;
+        }
+
         if (pwd !== confirmPwd) {
-            msg.className = "message-box error";
-            msg.innerText = "❌ Passwords do not match. Please re-enter.";
+            showAuthMessage("Passwords do not match. Please re-enter.", "error");
             return;
         }
 
         if (pwd.length < 6) {
-            msg.className = "message-box error";
-            msg.innerText = "❌ Password must be at least 6 characters long.";
+            showAuthMessage("Password must be at least 6 characters long.", "error");
             return;
         }
 
@@ -74,9 +96,9 @@ if (studentRegisterForm) {
         btn.innerText = "Creating account...";
 
         const payload = {
-            full_name: document.getElementById("reg_fullname").value.trim(),
-            student_id: document.getElementById("reg_student_id").value.trim(),
-            email: document.getElementById("reg_email").value.trim(),
+            full_name: fullname,
+            student_id: studentId,
+            email: email,
             password: pwd
         };
 
@@ -89,19 +111,18 @@ if (studentRegisterForm) {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                msg.className = "message-box success";
-                msg.innerText = "🎉 Account registered successfully! Please login below.";
                 studentRegisterForm.reset();
-                setTimeout(() => {
-                    switchAuthTab("student-login");
-                    document.getElementById("login_identifier").value = payload.email;
-                }, 1200);
+                if (typeof switchAuthTab === "function") {
+                    switchAuthTab("student-login", true);
+                }
+                showAuthMessage(data.message || "🎉 Account registered successfully! Please sign in below.", "success");
+                const loginInput = document.getElementById("login_identifier");
+                if (loginInput) loginInput.value = payload.email;
             } else {
                 throw new Error(data.message || "Registration failed.");
             }
         } catch (err) {
-            msg.className = "message-box error";
-            msg.innerText = `❌ ${err.message}`;
+            showAuthMessage(err.message, "error");
         } finally {
             btn.disabled = false;
             btn.innerText = "Register Account";
@@ -115,7 +136,6 @@ if (adminLoginForm) {
     adminLoginForm.addEventListener("submit", async function (e) {
         e.preventDefault();
         const btn = document.getElementById("adminLoginBtn");
-        const msg = document.getElementById("authMessage");
         btn.disabled = true;
         btn.innerText = "Authenticating...";
 
@@ -134,15 +154,13 @@ if (adminLoginForm) {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                msg.className = "message-box success";
-                msg.innerText = "✅ Admin authenticated! Opening Console...";
+                showAuthMessage("✅ Admin authenticated! Opening Console...", "success");
                 setTimeout(() => { window.location.href = "admin.html"; }, 800);
             } else {
                 throw new Error(data.message || "Invalid administrator credentials.");
             }
         } catch (err) {
-            msg.className = "message-box error";
-            msg.innerText = `❌ ${err.message}`;
+            showAuthMessage(err.message, "error");
             btn.disabled = false;
             btn.innerText = "Sign In to Admin Console";
         }
@@ -176,13 +194,17 @@ if (requestOtpForm) {
 
             if (res.ok && data.success) {
                 requestedResetEmail = email;
-                msg.className = "message-box success";
-                if (data.real_email_sent) {
-                    msg.innerHTML = `📩 6-Digit OTP sent directly to your Gmail inbox (<strong>${escapeHtml(email)}</strong>)!<br><small style="color:#1e3a8a; font-weight:600;">Please check your Gmail Inbox or Spam/Junk folder.</small>`;
-                } else if (data.demo_otp) {
-                    msg.innerHTML = `✅ 6-Digit OTP generated!<br><small style="color:#0f172a; font-weight:700;">🔑 Verification OTP: ${data.demo_otp}</small><br><small style="color:#475569; font-size:12px;">(Gmail SMTP credentials not configured yet in Vercel. Use code above for testing.)</small>`;
-                } else {
-                    msg.innerHTML = `✅ 6-Digit OTP sent to <strong>${escapeHtml(email)}</strong>!`;
+                const msg = document.getElementById("authMessage");
+                if (msg) {
+                    msg.className = "message-box success";
+                    msg.style.display = "block";
+                    if (data.real_email_sent) {
+                        msg.innerHTML = `📩 6-Digit OTP sent directly to your Gmail inbox (<strong>${escapeHtml(email)}</strong>)!<br><small style="color:#1e3a8a; font-weight:600;">Please check your Gmail Inbox or Spam/Junk folder.</small>`;
+                    } else if (data.demo_otp) {
+                        msg.innerHTML = `✅ 6-Digit OTP generated!<br><small style="color:#0f172a; font-weight:700;">🔑 Verification OTP: ${data.demo_otp}</small><br><small style="color:#475569; font-size:12px;">(Gmail SMTP credentials not configured yet in Vercel. Use code above for testing.)</small>`;
+                    } else {
+                        msg.innerHTML = `✅ 6-Digit OTP sent to <strong>${escapeHtml(email)}</strong>!`;
+                    }
                 }
                 
                 document.getElementById("fp-step-1").style.display = "none";
@@ -198,8 +220,7 @@ if (requestOtpForm) {
                 throw new Error(data.message || "Failed to send OTP.");
             }
         } catch (err) {
-            msg.className = "message-box error";
-            msg.innerText = `❌ ${err.message}`;
+            showAuthMessage(err.message, "error");
         } finally {
             btn.disabled = false;
             btn.innerText = "📩 Send 6-Digit OTP";
@@ -213,21 +234,18 @@ if (verifyOtpForm) {
     verifyOtpForm.addEventListener("submit", async function (e) {
         e.preventDefault();
         const btn = document.getElementById("verifyOtpBtn");
-        const msg = document.getElementById("authMessage");
 
         const otp = document.getElementById("fp_otp").value.trim();
         const newPwd = document.getElementById("fp_new_password").value;
         const confirmPwd = document.getElementById("fp_confirm_password").value;
 
         if (newPwd !== confirmPwd) {
-            msg.className = "message-box error";
-            msg.innerText = "❌ New passwords do not match. Please re-enter.";
+            showAuthMessage("New passwords do not match. Please re-enter.", "error");
             return;
         }
 
         if (newPwd.length < 6) {
-            msg.className = "message-box error";
-            msg.innerText = "❌ Password must be at least 6 characters long.";
+            showAuthMessage("Password must be at least 6 characters long.", "error");
             return;
         }
 
@@ -247,21 +265,22 @@ if (verifyOtpForm) {
             const data = await res.json();
 
             if (res.ok && data.success) {
-                msg.className = "message-box success";
-                msg.innerText = "🎉 Password updated successfully! Please sign in with your new password.";
                 verifyOtpForm.reset();
                 requestOtpForm.reset();
-                setTimeout(() => {
-                    switchAuthTab("student-login");
-                    document.getElementById("login_identifier").value = requestedResetEmail;
+                if (typeof switchAuthTab === "function") {
+                    switchAuthTab("student-login", true);
+                }
+                showAuthMessage(data.message || "🎉 Password updated successfully! Please sign in with your new password.", "success");
+                const loginInput = document.getElementById("login_identifier");
+                if (loginInput) {
+                    loginInput.value = requestedResetEmail;
                     document.getElementById("login_password").focus();
-                }, 1500);
+                }
             } else {
                 throw new Error(data.message || "Password reset failed.");
             }
         } catch (err) {
-            msg.className = "message-box error";
-            msg.innerText = `❌ ${err.message}`;
+            showAuthMessage(err.message, "error");
         } finally {
             btn.disabled = false;
             btn.innerText = "🔐 Verify OTP & Set New Password";
@@ -439,18 +458,17 @@ if (studentComplaintForm) {
 // Load complaints for this student
 let complaintPhotosMap = {};
 
-function openComplaintPhoto(complaintId) {
-    const imgData = complaintPhotosMap[complaintId];
-    if (!imgData) return;
+async function openComplaintPhoto(complaintId) {
     let modal = document.getElementById("complaintImageModal");
     if (!modal) {
         modal = document.createElement("div");
         modal.id = "complaintImageModal";
         modal.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); display:flex; align-items:center; justify-content:center; z-index:99999; padding:1.5rem; box-sizing:border-box;";
         modal.innerHTML = `
-            <div style="position:relative; max-width:92vw; max-height:92vh; background:#fff; border-radius:12px; padding:10px; box-shadow:0 20px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; align-items:center;">
+            <div style="position:relative; max-width:92vw; max-height:92vh; background:#fff; border-radius:12px; padding:10px; box-shadow:0 20px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; align-items:center; min-width:240px; min-height:160px; justify-content:center;">
                 <button type="button" id="closeImgModalBtn" style="position:absolute; top:-14px; right:-14px; width:34px; height:34px; border-radius:50%; background:#ef4444; color:#fff; border:2px solid #fff; font-size:16px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">✕</button>
-                <img id="complaintModalImg" src="" style="max-width:88vw; max-height:82vh; border-radius:8px; object-fit:contain; display:block;">
+                <div id="complaintModalLoading" style="display:none; color:#475569; font-weight:600; font-size:0.9rem; padding:1.5rem; text-align:center;">⏳ Loading photo...</div>
+                <img id="complaintModalImg" src="" style="max-width:88vw; max-height:82vh; border-radius:8px; object-fit:contain; display:none;">
             </div>
         `;
         document.body.appendChild(modal);
@@ -460,9 +478,50 @@ function openComplaintPhoto(complaintId) {
             }
         });
     }
+
     const modalImg = document.getElementById("complaintModalImg");
-    if (modalImg) modalImg.src = imgData;
+    const loader = document.getElementById("complaintModalLoading");
     modal.style.display = "flex";
+
+    // If image is already cached in memory, display immediately
+    if (complaintPhotosMap[complaintId]) {
+        if (loader) loader.style.display = "none";
+        if (modalImg) {
+            modalImg.src = complaintPhotosMap[complaintId];
+            modalImg.style.display = "block";
+        }
+        return;
+    }
+
+    // Otherwise load on-demand
+    if (loader) {
+        loader.innerText = "⏳ Loading photo...";
+        loader.style.display = "block";
+    }
+    if (modalImg) modalImg.style.display = "none";
+
+    try {
+        const res = await fetch(`/api/complaints/${complaintId}/image`);
+        const data = await res.json();
+        if (res.ok && data.success && data.image_data) {
+            complaintPhotosMap[complaintId] = data.image_data;
+            if (modalImg) {
+                modalImg.src = data.image_data;
+                modalImg.style.display = "block";
+            }
+            if (loader) loader.style.display = "none";
+        } else {
+            if (loader) {
+                loader.innerText = "❌ No photo attached to this complaint.";
+                loader.style.display = "block";
+            }
+        }
+    } catch (err) {
+        if (loader) {
+            loader.innerText = `❌ Error loading photo: ${err.message}`;
+            loader.style.display = "block";
+        }
+    }
 }
 window.openComplaintPhoto = openComplaintPhoto;
 
@@ -494,10 +553,9 @@ async function loadStudentComplaints() {
                 <td>
                     <div style="font-weight:700; color:#0f172a;">${escapeHtml(c.title)}</div>
                     <div style="font-size:0.85rem; color:#475569; margin-top:0.25rem;">${escapeHtml(c.description)}</div>
-                    ${c.image_data ? `
+                    ${(c.has_image || c.image_data) ? `
                         <div style="margin-top:0.35rem;">
                             <button type="button" onclick="openComplaintPhoto(${c.id})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:600; color:#2563eb;">
-                                <img src="${c.image_data}" style="width:26px; height:26px; object-fit:cover; border-radius:4px;">
                                 <span>📷 View Image</span>
                             </button>
                         </div>` : ''}
@@ -598,10 +656,9 @@ function renderAdminTable(data) {
             <td>
                 <div style="font-weight:700; color:#0f172a;">${escapeHtml(c.title)}</div>
                 <div style="font-size:0.85rem; color:#475569; margin-top:0.2rem;">${escapeHtml(c.description)}</div>
-                ${c.image_data ? `
+                ${(c.has_image || c.image_data) ? `
                     <div style="margin-top:0.35rem;">
                         <button type="button" onclick="openComplaintPhoto(${c.id})" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:3px 8px; cursor:pointer; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:600; color:#2563eb;">
-                            <img src="${c.image_data}" style="width:26px; height:26px; object-fit:cover; border-radius:4px;">
                             <span>📷 View Photo</span>
                         </button>
                     </div>` : ''}
