@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 _archive_old_php_versions/
+
+# Local database files
+*.sqlite
+*.sqlite3
+*.db
