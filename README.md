@@ -827,7 +827,7 @@ The application is architected for deployment on
 
 ### 1. Authentication Page
 <p align="center">
-  <img src="screenshots/01-login.png" width="85%" alt="Login Page">
+  <img src="screenshots/login.png" width="85%" alt="Login Page">
 </p>
 
 ### 2. Student Dashboard
