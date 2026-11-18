@@ -827,32 +827,32 @@ The application is architected for deployment on
 
 ### 1. Authentication Page
 <p align="center">
-  <img src="screenshots/01-login.png" width="85%" alt="Login Page">
+  <img src="screenshot/01-login.png" width="85%" alt="Login Page">
 </p>
 
 ### 2. Student Dashboard
 <p align="center">
-  <img src="screenshots/02-student-dashboard.png" width="85%" alt="Student Dashboard">
+  <img src="screenshot/02-student-dashboard.png" width="85%" alt="Student Dashboard">
 </p>
 
 ### 3. Submit Complaint
 <p align="center">
-  <img src="screenshots/03-submit-complaint.png" width="85%" alt="Submit Complaint">
+  <img src="screenshot/03-submit-complaint.png" width="85%" alt="Submit Complaint">
 </p>
 
 ### 4. Complaint Tracking
 <p align="center">
-  <img src="screenshots/04-complaint-tracking.png" width="85%" alt="Complaint Tracking">
+  <img src="screenshot/04-complaint-tracking.png" width="85%" alt="Complaint Tracking">
 </p>
 
 ### 5. Admin Dashboard
 <p align="center">
-  <img src="screenshots/05-admin-dashboard.png" width="85%" alt="Admin Dashboard">
+  <img src="screenshot/05-admin-dashboard.png" width="85%" alt="Admin Dashboard">
 </p>
 
 ### 6. Complaint Status Management
 <p align="center">
-  <img src="screenshots/06-status-management.png" width="85%" alt="Complaint Status Management">
+  <img src="screenshot/06-status-management.png" width="85%" alt="Complaint Status Management">
 </p>
 
 ------------------------------------------------------------------------
