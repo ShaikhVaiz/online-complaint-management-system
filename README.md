@@ -823,43 +823,37 @@ The application is architected for deployment on
 
 ------------------------------------------------------------------------
 
-## 📸 Recommended Screenshots
+## 📸 Application Screenshots
 
-**Visual documentation enhances project presentation for portfolio
-viewers and recruiters. To capture authentic screenshots, consider
-adding images under a `screenshots/` directory:**
+### 1. Authentication Page
+<p align="center">
+  <img src="screenshots/01-login.png" width="85%" alt="Login Page">
+</p>
 
-1.  **Authentication Gateway (`index.html`)**:
+### 2. Student Dashboard
+<p align="center">
+  <img src="screenshots/02-student-dashboard.png" width="85%" alt="Student Dashboard">
+</p>
 
-    -   `screenshots/01_student_login.png` - Student sign-in panel and
-        forgot password entry.
+### 3. Submit Complaint
+<p align="center">
+  <img src="screenshots/03-submit-complaint.png" width="85%" alt="Submit Complaint">
+</p>
 
-    -   `screenshots/02_student_signup.png` - Account registration form
-        with field validations.
+### 4. Complaint Tracking
+<p align="center">
+  <img src="screenshots/04-complaint-tracking.png" width="85%" alt="Complaint Tracking">
+</p>
 
-    -   `screenshots/03_admin_login.png` - Administrative credentials
-        portal.
+### 5. Admin Dashboard
+<p align="center">
+  <img src="screenshots/05-admin-dashboard.png" width="85%" alt="Admin Dashboard">
+</p>
 
-2.  **Student Dashboard (`student.html`)**:
-
-    -   `screenshots/04_student_dashboard.png` - Categorized grievance
-        lodging form with optional image picker and preview.
-
-    -   `screenshots/05_student_complaints_table.png` - Personal
-        complaint tracking table with color-coded status badges.
-
-3.  **Admin Console (`admin.html`)**:
-
-    -   `screenshots/06_admin_dashboard.png` - Campus summary metric KPI
-        cards and complaint registry.
-
-    -   `screenshots/07_status_workflow.png` - Real-time status update
-        dropdown and filtering options.
-
-4.  **Photo Evidence Modal**:
-
-    -   `screenshots/08_image_modal_viewer.png` - Responsive full-size
-        modal evidence viewer for attached photos.
+### 6. Complaint Status Management
+<p align="center">
+  <img src="screenshots/06-status-management.png" width="85%" alt="Complaint Status Management">
+</p>
 
 ------------------------------------------------------------------------
 
